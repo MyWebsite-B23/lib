@@ -1,7 +1,6 @@
 {
   "name": "util-lib",
   "version": "1.0.0",
-  "private": true,
   "description": "This repo hold common util functiona and classes",
   "main": "index.js",
   "scripts": {
