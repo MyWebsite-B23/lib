@@ -1,11 +1,27 @@
 {
-  "name": "util-lib",
-  "version": "1.0.0",
+  "name": "b23-util-lib",
+  "version": "0.0.3",
   "description": "This repo hold common util functiona and classes",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "repository": {
+    "url": "https://github.com/MyWebsite-B23/util-lib.git"
   },
-  "author": "",
-  "license": "ISC"
+  "scripts": {
+    "build": "tsup"
+  },
+  "keywords": [
+    "util-lib"
+  ],
+  "author": "Bharath Gowda B",
+  "license": "MIT",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.620.0",
+    "@aws-sdk/util-dynamodb": "^3.620.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2"
+  }
 }
