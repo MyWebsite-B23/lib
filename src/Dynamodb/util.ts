@@ -2,7 +2,7 @@ import { BatchGetItemCommand, BatchGetItemCommandInput, DeleteItemCommand, Delet
 import { AttributeValue, ReturnConsumedCapacity, ReturnValue, ReturnValuesOnConditionCheckFailure} from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 
-const client = new DynamoDBClient({ region: 'ap-south-1'});
+const client = new DynamoDBClient({ region: process.env.DYNAMODB_REGION});
 
 var process: any;
 
@@ -213,6 +213,8 @@ export async function getItemByIndex(TableName: string, index: string, keyCondit
 export { marshall };
 
 const DynamoDB = {
+    ReturnValue,
+    ReturnValuesOnConditionCheckFailure,
     marshall,
     unmarshall,
     putItem,

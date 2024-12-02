@@ -1,6 +1,6 @@
 {
   "name": "b23-util-lib",
-  "version": "0.0.3",
+  "version": "0.0.7",
   "description": "This repo hold common util functiona and classes",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -23,5 +23,8 @@
   "devDependencies": {
     "tsup": "^8.3.5",
     "typescript": "^5.7.2"
-  }
+  },
+  "files": [
+    "dist"
+  ]
 }
