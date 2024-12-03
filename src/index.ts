@@ -1,8 +1,13 @@
-import DynamoDB from './Dynamodb/util';
-import  SchemaDefinitions from './Schema/definition.json';
+import DynamoDB from './Dynamodb';
+import Schema from './Schema';
+import Auth from './Auth';
+import ResponseUtility from './Utils';
+import Logger from './Logger';
 
-export const getStandardSchemaDefinition = () => {
-  return SchemaDefinitions;
-}
-
-export  { DynamoDB };
+export  { 
+  DynamoDB,
+  Auth,
+  Schema,
+  ResponseUtility,
+  Logger
+};
