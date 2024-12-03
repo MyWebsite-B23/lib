@@ -1,6 +1,6 @@
 {
   "name": "b23-util-lib",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "This repo hold common util functiona and classes",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

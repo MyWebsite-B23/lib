@@ -34,6 +34,12 @@ class DynamoDBUtility {
     private logCapacity: boolean;
     private region: string;
 
+    marshall = marshall;
+    unmarshall = unmarshall;
+    ReturnValue = ReturnValue;
+    ReturnItemCollectionMetrics = ReturnItemCollectionMetrics;
+    ReturnValuesOnConditionCheckFailure = ReturnValuesOnConditionCheckFailure;
+
     constructor({ region, returnItemCollectionMetrics = ReturnItemCollectionMetrics.NONE, logCapacity = false}: { region: string, returnItemCollectionMetrics: ReturnItemCollectionMetrics, logCapacity: boolean}) {
         this.region = region;
         this.returnItemCollectionMetrics = returnItemCollectionMetrics;
