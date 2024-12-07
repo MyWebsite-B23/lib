@@ -1,19 +1,48 @@
-import { EncryptJWT, jwtDecrypt} from 'jose';
+import { EncryptJWT, importPKCS8, importSPKI, jwtDecrypt, jwtVerify, SignJWT} from 'jose';
 import util from 'util';
 import ErrorTypes from '../enums/ErrorTypes';
 import Logger from '../Logger';
-import ResponseUtility from '../Utils';
+import Utils, { ResponseUtility } from '../Utils';
+import assert from 'assert';
 
 class AuthUtility {
   private secretToken: string;
   private maxTokenAge: string;
+  private anonymousPrivateKey: string;
+  private anonymousPublicKey: string;
 
-  constructor({ secret, maxTokenAge = '30 days' }: { secret: string, maxTokenAge: string }){
+  constructor({ secret = '', maxTokenAge = '30 days', anonymousPrivateKey = '', anonymousPublicKey = '' }: { secret?: string, maxTokenAge?: string, anonymousPrivateKey?: string, anonymousPublicKey?: string}){
     this.secretToken = secret;
-    this.maxTokenAge = maxTokenAge
+    this.maxTokenAge = maxTokenAge;
+    this.anonymousPrivateKey = anonymousPrivateKey;
+    this.anonymousPublicKey = anonymousPublicKey;
   }
 
-  async createToken(id: string, additionalData: object): Promise<string> {
+  async createAnonymousToken(id: string, additionalData?: object): Promise<string> {
+    assert(Utils.isUUID(id), ErrorTypes.INVALID_UUID);
+    const payload = {
+        id,
+        ...additionalData
+    };
+
+    const privateKey = await importPKCS8(this.anonymousPrivateKey, 'RS256');
+    const token = await new SignJWT(payload)
+        .setProtectedHeader({ alg: 'RS256' })
+        .setExpirationTime(this.maxTokenAge)
+        .setIssuedAt()
+        .sign(privateKey);
+
+    return token;
+  }
+
+  async verifyAnonymousToken(token: string){
+    const publicKey = await importSPKI(this.anonymousPublicKey, 'RS256')
+    const jwt = await jwtVerify(token, publicKey, { maxTokenAge: this.maxTokenAge });
+    return jwt.payload;
+  }
+
+  async createToken(id: string, additionalData?: object): Promise<string> {
+    assert(Utils.isUUID(id), ErrorTypes.INVALID_UUID);
     const payload = {
         id,
         ...additionalData
@@ -35,17 +64,37 @@ class AuthUtility {
     return jwt.payload;
   }
 
-  AuthMiddleware (){
+  AuthMiddleware (allowAnonymous: boolean){
     return async (req: any, res: any, next: any) => {
         try {
-            const token = req.get('Authorization')?.split(' ')?.[1];
+            const [authType, token] = req.get('Authorization')?.split(' ');
             if(!token) {
                 throw new Error(ErrorTypes.INVALID_TOKEN);
             }
-        
-            const payload = await this.verifyToken(token);
+            let payload;
+            switch (authType) {
+              case 'Anon':
+                  if(!allowAnonymous){
+                    throw ResponseUtility.generateError(403, ErrorTypes.ANONYMOUS_SESSION_NOT_ALLOWED, true, true)
+                  }
+                  payload = await this.verifyAnonymousToken(token);
+                  break;
 
-            res.locals.auth = payload;
+              case 'User':
+                  payload = await this.verifyToken(token);
+                  break; 
+
+              case 'System':
+                  break;
+
+              default: 
+                throw ResponseUtility.generateError(403, ErrorTypes.INVALID_AUTH_TYPE, true, true);
+            }
+
+            res.locals.auth = {
+              authType,
+              ...payload
+            };
             next();
         } catch (error) {
             Logger.logError('AuthMiddleware', util.inspect(error))
