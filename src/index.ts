@@ -1,14 +1,17 @@
 import DynamoDB from './Dynamodb';
 import Schema from './Schema';
 import Auth from './Auth';
-import Utils, { ResponseUtility} from './Utils';
+import Utils from './Utils';
+import ResponseUtility from './Utils';
+import Fetch from './Utils/fetch';
 import Logger from './Logger';
 
 export  { 
   DynamoDB,
   Auth,
   Schema,
-  ResponseUtility,
   Utils,
-  Logger
+  ResponseUtility,
+  Logger,
+  Fetch
 };

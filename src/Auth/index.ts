@@ -2,7 +2,8 @@ import { EncryptJWT, importPKCS8, importSPKI, jwtDecrypt, jwtVerify, SignJWT} fr
 import util from 'util';
 import ErrorTypes from '../enums/ErrorTypes';
 import Logger from '../Logger';
-import Utils, { ResponseUtility } from '../Utils';
+import Utils from '../Utils';
+import ResponseUtility from '../Utils/response';
 import assert from 'assert';
 
 class AuthUtility {
