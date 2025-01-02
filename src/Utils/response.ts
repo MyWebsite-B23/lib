@@ -1,7 +1,7 @@
 import ErrorTypes from "../enums/ErrorTypes";
 import Logger from "../Logger";
 
-const ResponseUtility = {
+export const ResponseUtility = {
   handleException: (functionName: string, error: any, res: any) => {
     if (error.knownError) {
       error.logError && Logger.logError(functionName, error);
