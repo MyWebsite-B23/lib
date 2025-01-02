@@ -7,7 +7,7 @@ const ResponseUtility = {
       error.logError && Logger.logError(functionName, error);
       res.status(error.status).json({
         status: error.status,
-        error: error.message
+        error: error.error
       });
     } else {
       Logger.logException(functionName, error);
@@ -26,10 +26,10 @@ const ResponseUtility = {
     }
   },
 
-  generateError: (status: number, message: string, knownError: Boolean = true, logError: boolean = false) => {
+  generateError: (status: number, error: string, knownError: Boolean = true, logError: boolean = false) => {
     return {
       status,
-      message,
+      error,
       knownError,
       logError
     }

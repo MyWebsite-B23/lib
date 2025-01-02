@@ -2,7 +2,7 @@ import { EncryptJWT, jwtDecrypt} from 'jose';
 import util from 'util';
 import ErrorTypes from '../enums/ErrorTypes';
 import Logger from '../Logger';
-import ResponseUtility from '../Utils';
+import ResponseUtility from '../Utils/response';
 
 class AuthUtility {
   private secretToken: string;
