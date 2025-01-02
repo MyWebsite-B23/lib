@@ -37,7 +37,7 @@ class AuthUtility {
 
   async verifyAnonymousToken(token: string){
     const publicKey = await importSPKI(this.anonymousPublicKey, 'RS256')
-    const jwt = await jwtVerify(token, publicKey, { maxTokenAge: this.maxTokenAge });
+    const jwt = await jwtVerify(token, publicKey, {  clockTolerance: 30, maxTokenAge: this.maxTokenAge });
     return jwt.payload;
   }
 
@@ -60,7 +60,7 @@ class AuthUtility {
 
   async verifyToken(token: string){
     const secretKey = Buffer.from(this.secretToken, 'hex');
-    const jwt = await jwtDecrypt(token, secretKey, { maxTokenAge: this.maxTokenAge });
+    const jwt = await jwtDecrypt(token, secretKey, { clockTolerance: 30, maxTokenAge: this.maxTokenAge });
     return jwt.payload;
   }
 
@@ -93,6 +93,7 @@ class AuthUtility {
 
             res.locals.auth = {
               authType,
+              token,
               ...payload
             };
             next();

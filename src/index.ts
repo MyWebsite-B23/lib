@@ -1,7 +1,7 @@
 import DynamoDB from './Dynamodb';
 import Schema from './Schema';
 import Auth from './Auth';
-import ResponseUtility from './Utils';
+import Utils, { ResponseUtility} from './Utils';
 import Logger from './Logger';
 
 export  { 
@@ -9,5 +9,6 @@ export  {
   Auth,
   Schema,
   ResponseUtility,
+  Utils,
   Logger
 };
