@@ -1,4 +1,4 @@
-import { EncryptJWT, importPKCS8, importSPKI, jwtDecrypt, jwtVerify, SignJWT} from 'jose';
+import { importPKCS8, importSPKI, jwtVerify, SignJWT} from 'jose';
 import util from 'util';
 import ErrorTypes from '../enums/ErrorTypes';
 import Logger from '../Logger';
@@ -35,9 +35,9 @@ export const DefaultAuthUtilityConfig: AuthUtilityConfig = {
 export type AuthTokenType = 'Anon' | 'User' | 'System' | 'Admin';
 
 export type AuthMiddlewareConfig = {
-  allowAnonymous: boolean;
-  allowSystem: boolean;
-  allowUser: boolean;
+  allowAnonymous?: boolean;
+  allowSystem?: boolean;
+  allowUser?: boolean;
 }
 
 export const DefaultAuthMiddlewareConfig: AuthMiddlewareConfig = {
@@ -170,7 +170,6 @@ class AuthUtility {
   async createSystemToken(id: string, additionalData?: object): Promise<string> {
     assert(this.userPrivateKeys.length, ErrorTypes.USER_PRIVATE_KEY_NOT_FOUND);
 
-    assert(Utils.isUUID(id), ErrorTypes.INVALID_UUID);
     const payload = {
         id,
         type: 'System',
@@ -205,7 +204,7 @@ class AuthUtility {
     return payload;
   }
 
-  AuthMiddleware ({ allowAnonymous, allowSystem, allowUser }: AuthMiddlewareConfig = DefaultAuthMiddlewareConfig){
+  AuthMiddleware ({ allowAnonymous = false, allowSystem = true, allowUser = true }: AuthMiddlewareConfig = DefaultAuthMiddlewareConfig){
     return async (req: any, res: any, next: any) => {
         try {
             const [authType, token] = req.get('Authorization')?.split(' ');
@@ -233,10 +232,12 @@ class AuthUtility {
                     throw ResponseUtility.generateError(403, ErrorTypes.SYSTEM_SESSION_NOT_ALLOWED)
                   }
                   payload = await this.verifySystemToken(token);
+                  Logger.logMessage('AuthMiddleware', 'System Name - ' + payload.id);
                   break;
               
               case 'Admin':
                   payload = await this.verifyAdminToken(token);
+                  Logger.logMessage('AuthMiddleware', 'Admin Id - ' + payload.id);
                   break;
 
               default: 
