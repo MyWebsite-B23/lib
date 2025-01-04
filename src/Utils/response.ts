@@ -9,6 +9,12 @@ export const ResponseUtility = {
         status: error.status,
         error: error.error
       });
+    } else if(error.status && error.error) {
+      Logger.logException(functionName, error);
+      res.status(error.status).json({
+        ...error.error,
+        status: error.status,
+      });
     } else {
       Logger.logException(functionName, error);
       res.status(500).json({
