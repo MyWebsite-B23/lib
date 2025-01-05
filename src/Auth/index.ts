@@ -8,19 +8,19 @@ import assert from 'assert';
 
 type StringifiedJSONArray = string;
 
-export type AuthUtilityConfig = {
-  maxTokenAge?: string;
-  userPrivateKeys?: StringifiedJSONArray;
-  userPublicKeys?: StringifiedJSONArray;
-  anonymousPrivateKeys?: StringifiedJSONArray;
-  anonymousPublicKeys?: StringifiedJSONArray;
-  systemPrivateKeys?: StringifiedJSONArray;
-  systemPublicKeys?: StringifiedJSONArray;
-  adminPrivateKeys?: StringifiedJSONArray;
-  adminPublicKeys?: StringifiedJSONArray;
+export interface AuthUtilityConfig {
+  maxTokenAge: string;
+  userPrivateKeys: StringifiedJSONArray;
+  userPublicKeys: StringifiedJSONArray;
+  anonymousPrivateKeys: StringifiedJSONArray;
+  anonymousPublicKeys: StringifiedJSONArray;
+  systemPrivateKeys: StringifiedJSONArray;
+  systemPublicKeys: StringifiedJSONArray;
+  adminPrivateKeys: StringifiedJSONArray;
+  adminPublicKeys: StringifiedJSONArray;
 }
 
-export const DefaultAuthUtilityConfig: AuthUtilityConfig = {
+export const DefaultAuthUtilityConfig: Readonly<AuthUtilityConfig> = {
   maxTokenAge: '30 days',
   userPrivateKeys: '[]',
   userPublicKeys: '[]',
@@ -30,22 +30,25 @@ export const DefaultAuthUtilityConfig: AuthUtilityConfig = {
   systemPublicKeys: '[]',
   adminPrivateKeys: '[]',
   adminPublicKeys: '[]',
-}
+};
 
 export type AuthTokenType = 'Anon' | 'User' | 'System' | 'Admin';
 
-export type AuthMiddlewareConfig = {
-  allowAnonymous?: boolean;
-  allowSystem?: boolean;
-  allowUser?: boolean;
+export interface AuthMiddlewareConfig {
+  allowAnonymous: boolean;
+  allowSystem: boolean;
+  allowUser: boolean;
 }
 
-export const DefaultAuthMiddlewareConfig: AuthMiddlewareConfig = {
+export const DefaultAuthMiddlewareConfig: Readonly<AuthMiddlewareConfig> = {
   allowAnonymous: false,
   allowSystem: true,
-  allowUser: true
-}
+  allowUser: true,
+};
 
+/**
+ * A utility class for JWT authentication and authorization.
+ */
 class AuthUtility {
   private maxTokenAge: string;
   private userPrivateKeys: string[];
@@ -57,47 +60,59 @@ class AuthUtility {
   private adminPrivateKeys: string[];
   private adminPublicKeys: string[];
 
-  constructor({ maxTokenAge = '30 days', userPrivateKeys = '[]', userPublicKeys = '[]', anonymousPrivateKeys = '[]', anonymousPublicKeys = '[]', systemPrivateKeys = '[]', systemPublicKeys = '[]', adminPrivateKeys = '[]', adminPublicKeys = '[]' }: AuthUtilityConfig = DefaultAuthUtilityConfig){
+  /**
+   * Initializes the AuthUtility class with a configuration.
+   * @param config The configuration for the utility (optional).
+   */
+  constructor(config: Partial<AuthUtilityConfig> = DefaultAuthUtilityConfig) {
+    const {
+      maxTokenAge,
+      userPrivateKeys,
+      userPublicKeys,
+      anonymousPrivateKeys,
+      anonymousPublicKeys,
+      systemPrivateKeys,
+      systemPublicKeys,
+      adminPrivateKeys,
+      adminPublicKeys,
+    } = { ...DefaultAuthUtilityConfig, ...config };
+
     this.maxTokenAge = maxTokenAge;
 
     this.userPrivateKeys = JSON.parse(userPrivateKeys);
-    if(this.userPrivateKeys.length > 3){
-      Logger.logWarning('AuthUtility', 'More than 1 user private key provided. The last key will be used for signing.');
-    }
     this.userPublicKeys = JSON.parse(userPublicKeys);
-    if(this.userPublicKeys.length > 3){
-      Logger.logWarning('AuthUtility', 'More than 3 user public keys provided. This is not recommended.');
-    }
-    
-    this.anonymousPrivateKeys = JSON.parse(anonymousPrivateKeys);
-    if(this.anonymousPrivateKeys.length > 1){
-      Logger.logWarning('AuthUtility', 'More than 1 anonymous private key provided. The last key will be used for signing.');
-    }
 
+    this.anonymousPrivateKeys = JSON.parse(anonymousPrivateKeys);
     this.anonymousPublicKeys = JSON.parse(anonymousPublicKeys);
-    if(this.anonymousPublicKeys.length > 3){
-      Logger.logWarning('AuthUtility', 'More than 3 anonymous public keys provided. This is not recommended.');
-    }
 
     this.systemPrivateKeys = JSON.parse(systemPrivateKeys);
-    if(this.systemPrivateKeys.length > 1){
-      Logger.logWarning('AuthUtility', 'More than 1 system private key provided. The last key will be used for signing.');
-    }
-
     this.systemPublicKeys = JSON.parse(systemPublicKeys);
-    if(this.systemPublicKeys.length > 3){
-      Logger.logWarning('AuthUtility', 'More than 3 system public keys provided. This is not recommended.');
-    }
 
     this.adminPrivateKeys = JSON.parse(adminPrivateKeys);
-    if(this.adminPrivateKeys.length > 1){
-      Logger.logWarning('AuthUtility', 'More than 1 admin private key provided. The last key will be used for signing.');
-    }
-
     this.adminPublicKeys = JSON.parse(adminPublicKeys);
-    if(this.adminPublicKeys.length > 3){
-      Logger.logWarning('AuthUtility', 'More than 3 admin public keys provided. This is not recommended.');
-    }
+
+    this.logWarnings();
+  }
+
+  /**
+   * Logs warnings if the number of keys exceeds recommended limits.
+   */
+  private logWarnings() {
+    const warn = (type: string, keys: string[], limit: number) =>
+      keys.length > limit &&
+      Logger.logWarning(
+        'AuthUtility',
+        `More than ${limit} ${type} keys provided. This is not recommended.`
+      );
+
+    warn('user private', this.userPrivateKeys, 3);
+    warn('user public', this.userPublicKeys, 3);
+    warn('anonymous private', this.anonymousPrivateKeys, 1);
+    warn('anonymous public', this.anonymousPublicKeys, 3);
+    warn('system private', this.systemPrivateKeys, 1);
+    warn('system public', this.systemPublicKeys, 3);
+    warn('admin private', this.adminPrivateKeys, 1);
+    warn('admin public', this.adminPublicKeys, 3);
   }
 
   private async createSignedJWT(payload: any, privateKeyString: string, expiration: string){
@@ -204,58 +219,53 @@ class AuthUtility {
     return payload;
   }
 
-  AuthMiddleware ({ allowAnonymous = false, allowSystem = true, allowUser = true }: AuthMiddlewareConfig = DefaultAuthMiddlewareConfig){
+  /**
+   * Middleware for handling JWT authentication.
+   * @param config Configuration for middleware behavior.
+   */
+  AuthMiddleware(config: Partial<AuthMiddlewareConfig> = DefaultAuthMiddlewareConfig) {
+    const { allowAnonymous, allowSystem, allowUser } = { ...DefaultAuthMiddlewareConfig, ...config };
     return async (req: any, res: any, next: any) => {
-        try {
-            const [authType, token] = req.get('Authorization')?.split(' ');
-            if(!token) {
-                throw new Error(ErrorTypes.INVALID_TOKEN);
-            }
-            let payload;
-            switch (authType as AuthTokenType) {
-              case 'Anon':
-                  if(!allowAnonymous){
-                    throw ResponseUtility.generateError(403, ErrorTypes.ANONYMOUS_SESSION_NOT_ALLOWED)
-                  }
-                  payload = await this.verifyAnonymousToken(token);
-                  break;
+      try {
+        const [authType, token] = req.get('Authorization')?.split(' ') || [];
+        if (!token) throw new Error(ErrorTypes.INVALID_TOKEN);
 
-              case 'User':
-                  if(!allowUser){
-                    throw ResponseUtility.generateError(403, ErrorTypes.USER_SESSION_NOT_ALLOWED)
-                  }
-                  payload = await this.verifyUserToken(token);
-                  break;
-
-              case 'System':
-                  if(!allowSystem){
-                    throw ResponseUtility.generateError(403, ErrorTypes.SYSTEM_SESSION_NOT_ALLOWED)
-                  }
-                  payload = await this.verifySystemToken(token);
-                  Logger.logMessage('AuthMiddleware', 'System Name - ' + payload.id);
-                  break;
-              
-              case 'Admin':
-                  payload = await this.verifyAdminToken(token);
-                  Logger.logMessage('AuthMiddleware', 'Admin Id - ' + payload.id);
-                  break;
-
-              default: 
-                throw ResponseUtility.generateError(403, ErrorTypes.INVALID_AUTH_TYPE);
-            }
-
-            res.locals.auth = {
-              authType,
-              token,
-              ...payload
-            };
-            next();
-        } catch (error : any) {
-            Logger.logError('AuthMiddleware', util.inspect(error))
-            ResponseUtility.handleException('AuthMiddleware', ResponseUtility.generateError(401, error.error ? error.error : ErrorTypes.TOKEN_EXPIRED, true), res);
+        let payload;
+        switch (authType as AuthTokenType) {
+          case 'Anon':
+            if (!allowAnonymous) throw ResponseUtility.generateError(403, ErrorTypes.ANONYMOUS_SESSION_NOT_ALLOWED);
+            payload = await this.verifyAnonymousToken(token);
+            break;
+          case 'User':
+            if (!allowUser) throw ResponseUtility.generateError(403, ErrorTypes.USER_SESSION_NOT_ALLOWED);
+            payload = await this.verifyUserToken(token);
+            break;
+          case 'System':
+            if (!allowSystem) throw ResponseUtility.generateError(403, ErrorTypes.SYSTEM_SESSION_NOT_ALLOWED);
+            payload = await this.verifySystemToken(token);
+            Logger.logMessage('AuthMiddleware', `System Name - ${payload.id}`);
+            break;
+          case 'Admin':
+            payload = await this.verifyAdminToken(token);
+            Logger.logMessage('AuthMiddleware', `Admin Id - ${payload.id}`);
+            break;
+          default:
+            throw ResponseUtility.generateError(403, ErrorTypes.INVALID_AUTH_TYPE);
         }
-    }
+
+        res.locals.auth = { authType, token, ...payload };
+        next();
+      } catch (error: any) {
+        Logger.logError('AuthMiddleware', util.inspect(error));
+        ResponseUtility.handleException(
+          'AuthMiddleware',
+          ResponseUtility.generateError(401, error.error || ErrorTypes.TOKEN_EXPIRED, true),
+          res
+        );
+      }
+    };
   }
 }
 
-export default AuthUtility; 
+export default AuthUtility;
+
