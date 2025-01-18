@@ -183,7 +183,7 @@ class AuthUtility {
   }
 
   async createSystemToken(id: string, additionalData?: object): Promise<string> {
-    assert(this.userPrivateKeys.length, ErrorTypes.USER_PRIVATE_KEY_NOT_FOUND);
+    assert(this.systemPrivateKeys.length, ErrorTypes.SYSTEM_PRIVATE_KEY_NOT_FOUND);
 
     const payload = {
         id,

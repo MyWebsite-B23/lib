@@ -51,7 +51,7 @@ const Fetch = async (
 
     const body = await response.json();
 
-    Logger.logMessage('Fetch', `API call successful: URL-${baseURL}/${endpoint}, Status- ${response.status}}`);
+    Logger.logMessage('Fetch', `API call successful: URL-${baseURL}/${endpoint}, Status- ${response.status}`);
     return {
       status: response.status,
       statusText: response.statusText,

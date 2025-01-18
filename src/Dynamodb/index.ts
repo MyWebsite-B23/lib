@@ -303,13 +303,15 @@ class DynamoDBUtility {
         consistent: boolean = false, 
         projection?: string, 
         attributeName?: Record<string, string>, 
-        attributeValue?:  Record<string, AttributeValue>
+        attributeValue?:  Record<string, AttributeValue>,
+        lastEvaluatedKey?:  Record<string, AttributeValue>
     ) {
         const input: QueryCommandInput = {
             TableName,
             IndexName: index,
             KeyConditionExpression: keyCondition,
             ExpressionAttributeValues: attributeValue,
+            ExclusiveStartKey: lastEvaluatedKey,
             ConsistentRead: consistent,
             ProjectionExpression: projection,
             ExpressionAttributeNames: attributeName,
@@ -318,8 +320,11 @@ class DynamoDBUtility {
     
         const command = new QueryCommand(input);
         const result = await this.client.send(command);
-        this.log("Query", result.ConsumedCapacity);
-        return { Items: result.Items?.map(item => unmarshall(item)) || [] };
+        this.log("GetItemByIndex", result.ConsumedCapacity);
+        return { 
+            Items: result.Items?.map(item => unmarshall(item)) || [],
+            lastEvaluatedKey: result.LastEvaluatedKey,
+        };
     }
 }
 
