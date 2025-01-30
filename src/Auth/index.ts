@@ -32,18 +32,20 @@ export const DefaultAuthUtilityConfig: Readonly<AuthUtilityConfig> = {
   adminPublicKeys: '[]',
 };
 
-export type AuthTokenType = 'Anon' | 'User' | 'System' | 'Admin';
+export type AuthTokenType = 'Anon' | 'User' | 'System' | 'Admin' | 'CDN';
 
 export interface AuthMiddlewareConfig {
   allowAnonymous: boolean;
   allowSystem: boolean;
   allowUser: boolean;
+  allowCDN: boolean;
 }
 
 export const DefaultAuthMiddlewareConfig: Readonly<AuthMiddlewareConfig> = {
   allowAnonymous: false,
   allowSystem: true,
   allowUser: true,
+  allowCDN: false
 };
 
 /**
@@ -224,7 +226,7 @@ class AuthUtility {
    * @param config Configuration for middleware behavior.
    */
   AuthMiddleware(config: Partial<AuthMiddlewareConfig> = DefaultAuthMiddlewareConfig) {
-    const { allowAnonymous, allowSystem, allowUser } = { ...DefaultAuthMiddlewareConfig, ...config };
+    const { allowAnonymous, allowSystem, allowUser, allowCDN } = { ...DefaultAuthMiddlewareConfig, ...config };
     return async (req: any, res: any, next: any) => {
       try {
         const [authType, token] = req.get('Authorization')?.split(' ') || [];
@@ -248,6 +250,11 @@ class AuthUtility {
           case 'Admin':
             payload = await this.verifyAdminToken(token);
             Logger.logMessage('AuthMiddleware', `Admin Id - ${payload.id}`);
+            break;
+          case 'CDN':
+            if (!allowCDN) throw ResponseUtility.generateError(403, ErrorTypes.CDN_SESSION_NOT_ALLOWED);
+            assert(['E3CQMOP5FX6KD1', 'E3TNCKKZ3FOX9W'].includes(token), ErrorTypes.INVALID_TOKEN);
+            Logger.logMessage('AuthMiddleware', `CDN DistributionId - ${token}`);
             break;
           default:
             throw ResponseUtility.generateError(403, ErrorTypes.INVALID_AUTH_TYPE);
