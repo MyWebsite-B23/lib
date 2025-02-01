@@ -1,6 +1,6 @@
 {
   "name": "b23-lib",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "This repo hold common classes, type and util functiona",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -19,8 +19,7 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.620.0",
     "@aws-sdk/util-dynamodb": "^3.620.0",
-    "jose": "^5.6.3",
-    "util": "^0.12.5"
+    "jose": "^5.6.3"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",

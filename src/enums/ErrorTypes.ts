@@ -16,5 +16,6 @@ export default Object.freeze({
     USER_SESSION_NOT_ALLOWED: "User Session Not Allowed",
     SYSTEM_SESSION_NOT_ALLOWED: "System Session Not Allowed",
     CDN_SESSION_NOT_ALLOWED: "CDN Session Not Allowed",
-    INTERNAL_SERVER_ERROR: "Internal Server Error"
+    INTERNAL_SERVER_ERROR: "Internal Server Error",
+    SOMETHING_WENT_WRONG: 'Something went wrong'
 })
