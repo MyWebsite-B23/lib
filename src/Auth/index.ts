@@ -1,5 +1,4 @@
 import { importPKCS8, importSPKI, jwtVerify, SignJWT} from 'jose';
-import util from 'util';
 import ErrorTypes from '../enums/ErrorTypes';
 import Logger from '../Logger';
 import Utils from '../Utils';
@@ -145,6 +144,15 @@ class AuthUtility {
     return jwt.payload;
   }
 
+  
+  /**
+   * Creates an anonymous token with the given ID and additional data.
+   *
+   * @param id - The unique identifier for the token. Must be a valid UUID.
+   * @param additionalData - Optional additional data to include in the token payload.
+   * @returns A promise that resolves to the signed JWT as a string.
+   * @throws Will throw an error if no anonymous private keys are found or if the ID is not a valid UUID.
+   */
   async createAnonymousToken(id: string, additionalData?: object): Promise<string> {
     assert(this.anonymousPrivateKeys.length, ErrorTypes.ANONYMOUS_PRIVATE_KEY_NOT_FOUND);
 
@@ -158,6 +166,13 @@ class AuthUtility {
     return await this.createSignedJWT(payload, this.anonymousPrivateKeys[this.anonymousPrivateKeys.length - 1], this.maxTokenAge);
   }
 
+  /**
+   * Verifies an anonymous token by checking its signature and payload type.
+   *
+   * @param token - The JWT token to be verified.
+   * @returns The payload of the verified token.
+   * @throws Will throw an error if no anonymous public keys are found or if the token type is invalid.
+   */
   async verifyAnonymousToken(token: string){
     assert(this.anonymousPublicKeys.length, ErrorTypes.ANONYMOUS_PUBLIC_KEY_NOT_FOUND);
     const payload = await this.verifySignedJWT(token, this.anonymousPublicKeys, this.maxTokenAge);
@@ -165,6 +180,14 @@ class AuthUtility {
     return payload;
   }
 
+  /**
+   * Creates a signed JWT token for a user.
+   *
+   * @param id - The UUID of the user.
+   * @param additionalData - Optional additional data to include in the token payload.
+   * @returns A promise that resolves to the signed JWT token as a string.
+   * @throws Will throw an error if no user private keys are found or if the provided id is not a valid UUID.
+   */
   async createUserToken(id: string, additionalData?: object): Promise<string> {
     assert(this.userPrivateKeys.length, ErrorTypes.USER_PRIVATE_KEY_NOT_FOUND);
     assert(Utils.isUUID(id), ErrorTypes.INVALID_UUID);
@@ -177,6 +200,13 @@ class AuthUtility {
     return await this.createSignedJWT(payload, this.userPrivateKeys[this.userPrivateKeys.length - 1], this.maxTokenAge);
   }
 
+  /**
+   * Verifies the provided user token by checking its signature and payload.
+   *
+   * @param token - The JWT token to be verified.
+   * @returns The payload of the verified token if valid.
+   * @throws Will throw an error if no user public keys are found or if the token type is invalid.
+   */
   async verifyUserToken(token: string){
     assert(this.userPublicKeys.length, ErrorTypes.USER_PUBLIC_KEY_NOT_FOUND);
     const payload =await this.verifySignedJWT(token, this.userPublicKeys, this.maxTokenAge);
@@ -184,6 +214,14 @@ class AuthUtility {
     return payload;
   }
 
+  /**
+   * Creates a signed JWT (JSON Web Token) for a system with the given ID and optional additional data.
+   *
+   * @param id - The unique identifier for the system.
+   * @param additionalData - Optional additional data to include in the token payload.
+   * @returns A promise that resolves to the signed JWT as a string.
+   * @throws Will throw an error if no system private keys are found.
+   */
   async createSystemToken(id: string, additionalData?: object): Promise<string> {
     assert(this.systemPrivateKeys.length, ErrorTypes.SYSTEM_PRIVATE_KEY_NOT_FOUND);
 
@@ -195,6 +233,13 @@ class AuthUtility {
     return await this.createSignedJWT(payload, this.systemPrivateKeys[this.systemPrivateKeys.length - 1], '5 min');
   }
 
+  /**
+   * Verifies a system token by checking its signature and payload type.
+   *
+   * @param token - The JWT token to be verified.
+   * @returns The payload of the verified token.
+   * @throws Will throw an error if no system public keys are found or if the token type is not 'System'.
+   */
   async verifySystemToken(token: string){
     assert(this.systemPublicKeys.length, ErrorTypes.USER_PUBLIC_KEY_NOT_FOUND);
     const payload = await this.verifySignedJWT(token, this.systemPublicKeys, '5 min');
@@ -202,6 +247,14 @@ class AuthUtility {
     return payload;
   }
 
+  /**
+   * Creates a signed JWT token for an admin user.
+   *
+   * @param id - The UUID of the admin user.
+   * @param additionalData - Optional additional data to include in the token payload.
+   * @returns A promise that resolves to the signed JWT token string.
+   * @throws Will throw an error if no admin private keys are found or if the provided id is not a valid UUID.
+   */
   async createAdminToken(id: string, additionalData?: object): Promise<string> {
     assert(this.adminPrivateKeys.length, ErrorTypes.ADMIN_PRIVATE_KEY_NOT_FOUND);
 
@@ -214,6 +267,15 @@ class AuthUtility {
     return await this.createSignedJWT(payload, this.adminPrivateKeys[this.adminPrivateKeys.length - 1], this.maxTokenAge);
   }
 
+  /**
+   * Verifies the provided admin token by checking its signature and payload.
+   * Ensures that the token is signed with one of the known admin public keys
+   * and that the payload type is 'Admin'.
+   *
+   * @param token - The JWT token to be verified.
+   * @returns The payload of the verified token.
+   * @throws Will throw an error if no admin public keys are found or if the token is invalid.
+   */
   async verifyAdminToken(token: string){
     assert(this.adminPublicKeys.length, ErrorTypes.ADMIN_PUBLIC_KEY_NOT_FOUND);
     const payload = await this.verifySignedJWT(token, this.adminPublicKeys, this.maxTokenAge);
@@ -222,10 +284,13 @@ class AuthUtility {
   }
 
   /**
-   * Middleware for handling JWT authentication.
-   * @param config Configuration for middleware behavior.
+   * Middleware function to handle authentication based on different token types.
+   * It verifies the token and sets the authentication details in the response locals.
+   *
+   * @param {Partial<AuthMiddlewareConfig>} [config=DefaultAuthMiddlewareConfig] - Configuration object to customize the middleware behavior.
+   * @returns {Function} Middleware function to handle authentication.
    */
-  AuthMiddleware(config: Partial<AuthMiddlewareConfig> = DefaultAuthMiddlewareConfig) {
+  AuthMiddleware(config: Partial<AuthMiddlewareConfig> = DefaultAuthMiddlewareConfig): Function {
     const { allowAnonymous, allowSystem, allowUser, allowCDN } = { ...DefaultAuthMiddlewareConfig, ...config };
     return async (req: any, res: any, next: any) => {
       try {
@@ -263,7 +328,7 @@ class AuthUtility {
         res.locals.auth = { authType, token, ...payload };
         next();
       } catch (error: any) {
-        Logger.logError('AuthMiddleware', util.inspect(error));
+        Logger.logError('AuthMiddleware', error);
         ResponseUtility.handleException(
           'AuthMiddleware',
           ResponseUtility.generateError(401, error.error || ErrorTypes.TOKEN_EXPIRED, true),
