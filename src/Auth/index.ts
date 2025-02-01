@@ -288,9 +288,9 @@ class AuthUtility {
    * It verifies the token and sets the authentication details in the response locals.
    *
    * @param {Partial<AuthMiddlewareConfig>} [config=DefaultAuthMiddlewareConfig] - Configuration object to customize the middleware behavior.
-   * @returns {Function} Middleware function to handle authentication.
+   * @returns Middleware function to handle authentication.
    */
-  AuthMiddleware(config: Partial<AuthMiddlewareConfig> = DefaultAuthMiddlewareConfig): Function {
+  AuthMiddleware(config: Partial<AuthMiddlewareConfig> = DefaultAuthMiddlewareConfig) {
     const { allowAnonymous, allowSystem, allowUser, allowCDN } = { ...DefaultAuthMiddlewareConfig, ...config };
     return async (req: any, res: any, next: any) => {
       try {
