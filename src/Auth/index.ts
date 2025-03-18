@@ -4,6 +4,7 @@ import Logger from '../Logger';
 import Utils from '../Utils';
 import ResponseUtility from '../Utils/response';
 import assert from 'assert';
+import Fetch from '../Utils/fetch';
 
 type StringifiedJSONArray = string;
 
@@ -250,18 +251,20 @@ class AuthUtility {
   /**
    * Creates a signed JWT token for an admin user.
    *
-   * @param id - The UUID of the admin user.
+   * @param email - The email of the admin user.
    * @param additionalData - Optional additional data to include in the token payload.
    * @returns A promise that resolves to the signed JWT token string.
    * @throws Will throw an error if no admin private keys are found or if the provided id is not a valid UUID.
    */
-  async createAdminToken(id: string, additionalData?: object): Promise<string> {
+  async createAdminToken(email: string, verifier: string, additionalData?: object): Promise<string> {
     assert(this.adminPrivateKeys.length, ErrorTypes.ADMIN_PRIVATE_KEY_NOT_FOUND);
 
-    assert(Utils.isUUID(id), ErrorTypes.INVALID_UUID);
+    assert(Utils.isEmail(email), ErrorTypes.INVALID_EMAIL);
+    assert(Utils.isURL(verifier), ErrorTypes.INVALID_VERIFIER);
     const payload = {
-        id,
+        email,
         type: 'Admin',
+        verifier: verifier,
         ...additionalData
     };
     return await this.createSignedJWT(payload, this.adminPrivateKeys[this.adminPrivateKeys.length - 1], this.maxTokenAge);
@@ -273,13 +276,22 @@ class AuthUtility {
    * and that the payload type is 'Admin'.
    *
    * @param token - The JWT token to be verified.
+   * @param permissions - The permissions required for the admin user.
    * @returns The payload of the verified token.
-   * @throws Will throw an error if no admin public keys are found or if the token is invalid.
+   * @throws Will throw an error if no admin public keys are found or if the token is invalid or if the admin doesn't have proper permissions.
    */
-  async verifyAdminToken(token: string){
+  async verifyAdminToken(token: string, permissions: string[]){
     assert(this.adminPublicKeys.length, ErrorTypes.ADMIN_PUBLIC_KEY_NOT_FOUND);
     const payload = await this.verifySignedJWT(token, this.adminPublicKeys, this.maxTokenAge);
     assert(payload.type === 'Admin', ErrorTypes.INVALID_AUTH_TYPE);
+
+    const response = await Fetch(payload.verifier as string, '', 'POST', {}, { token, permissions });
+    assert(response.data.isTokenValid === true, ErrorTypes.INVALID_TOKEN);
+
+    if(response.data.hasPermissions !== true){
+      throw ResponseUtility.generateError(403, ErrorTypes.INVALID_PERMISSIONS)
+    }
+
     return payload;
   }
 
@@ -290,7 +302,7 @@ class AuthUtility {
    * @param {Partial<AuthMiddlewareConfig>} [config=DefaultAuthMiddlewareConfig] - Configuration object to customize the middleware behavior.
    * @returns Middleware function to handle authentication.
    */
-  AuthMiddleware(config: Partial<AuthMiddlewareConfig> = DefaultAuthMiddlewareConfig) {
+  AuthMiddleware(config: Partial<AuthMiddlewareConfig> = DefaultAuthMiddlewareConfig, permissions: string[] = []) {
     const { allowAnonymous, allowSystem, allowUser, allowCDN } = { ...DefaultAuthMiddlewareConfig, ...config };
     return async (req: any, res: any, next: any) => {
       try {
@@ -313,8 +325,8 @@ class AuthUtility {
             Logger.logMessage('AuthMiddleware', `System Name - ${payload.id}`);
             break;
           case 'Admin':
-            payload = await this.verifyAdminToken(token);
-            Logger.logMessage('AuthMiddleware', `Admin Id - ${payload.id}`);
+            payload = await this.verifyAdminToken(token, permissions);
+            Logger.logMessage('AuthMiddleware', `Admin - ${payload.email}`);
             break;
           case 'CDN':
             if (!allowCDN) throw ResponseUtility.generateError(403, ErrorTypes.CDN_SESSION_NOT_ALLOWED);

@@ -1,7 +1,10 @@
 export default Object.freeze({
     INVALID_UUID: "Invalid UUID",
+    INVALID_EMAIL: "Invalid Email",
     INVALID_TOKEN: "Invalid Token",
     TOKEN_EXPIRED: "Token Expired",
+    INVALID_VERIFIER: "Invalid Verifier",
+    INVALID_PERMISSIONS: "Invalid Permissions",
     INVALID_AUTH_TYPE: "Invalid Authorization Type",
     USER_PRIVATE_KEY_NOT_FOUND: "User Private Key Not Found",
     USER_PUBLIC_KEY_NOT_FOUND: "User Public Key Not Found",

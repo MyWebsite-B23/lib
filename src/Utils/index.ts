@@ -6,6 +6,16 @@ const Utils = {
     return uuidRegex.test(value);
   },
 
+  isEmail: (value: string): boolean => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(value);
+  },
+
+  isURL: (value: string): boolean => {
+    const urlRegex = /^(http|https):\/\/[^ "]+$/;
+    return urlRegex.test(value);
+  },
+  
   generateUUID: (value?: string, namespace?: string) => {
     if(namespace && value){
       return uuidv5(value, namespace);
