@@ -277,19 +277,22 @@ class AuthUtility {
    *
    * @param token - The JWT token to be verified.
    * @param permissions - The permissions required for the admin user.
+   * @param authenticate - Whether to authenticate the token with the verifier.
    * @returns The payload of the verified token.
    * @throws Will throw an error if no admin public keys are found or if the token is invalid or if the admin doesn't have proper permissions.
    */
-  async verifyAdminToken(token: string, permissions: string[]){
+  async verifyAdminToken(token: string, permissions: string[], authenticate: boolean){
     assert(this.adminPublicKeys.length, ErrorTypes.ADMIN_PUBLIC_KEY_NOT_FOUND);
     const payload = await this.verifySignedJWT(token, this.adminPublicKeys, this.maxTokenAge);
     assert(payload.type === 'Admin', ErrorTypes.INVALID_AUTH_TYPE);
 
-    const response = await Fetch(payload.verifier as string, '', 'POST', {}, { token, permissions });
-    assert(response.data.isTokenValid === true, ErrorTypes.INVALID_TOKEN);
-
-    if(response.data.hasPermissions !== true){
-      throw ResponseUtility.generateError(403, ErrorTypes.INVALID_PERMISSIONS)
+    if(authenticate) {
+      const response = await Fetch(payload.verifier as string, '', 'POST', {}, { token, permissions });
+      assert(response.data.isTokenValid === true, ErrorTypes.INVALID_TOKEN);
+  
+      if(response.data.hasPermissions !== true){
+        throw ResponseUtility.generateError(403, ErrorTypes.INVALID_PERMISSIONS)
+      }
     }
 
     return payload;
@@ -325,7 +328,7 @@ class AuthUtility {
             Logger.logMessage('AuthMiddleware', `System Name - ${payload.id}`);
             break;
           case 'Admin':
-            payload = await this.verifyAdminToken(token, permissions);
+            payload = await this.verifyAdminToken(token, permissions, true);
             Logger.logMessage('AuthMiddleware', `Admin - ${payload.email}`);
             break;
           case 'CDN':
