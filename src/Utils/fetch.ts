@@ -45,8 +45,9 @@ const Fetch = async (
     options.body = JSON.stringify(payload);
   }
 
+  const completeURL = `${baseURL}${endpoint ? ('/' + endpoint) : ''}`
   try {
-    const response: any = await fetch(`${baseURL}/${endpoint}`, options);
+    const response: any = await fetch(completeURL, options);
 
     if (!response.ok) {
       const errorBody: any = await response.json().catch(() => response.text());
@@ -63,7 +64,7 @@ const Fetch = async (
 
     const body = await response.json();
 
-    Logger.logMessage('Fetch', `API call successful: URL-${baseURL}/${endpoint}, Status- ${response.status}`);
+    Logger.logMessage('Fetch', `API call successful: URL-${completeURL}, Status- ${response.status}`);
     return {
       status: response.status,
       statusText: response.statusText,
@@ -71,7 +72,7 @@ const Fetch = async (
     } as SuccessType;
   } catch (err: any) {
     
-    Logger.logError('Fetch', `API call failed: URL-${baseURL}/${endpoint}, Status- ${err.status || 500}, Error- ${Logger.inspect(err.error || err)}`);
+    Logger.logError('Fetch', `API call failed: URL-${completeURL}, Status- ${err.status || 500}, Error- ${Logger.inspect(err.error || err)}`);
     throw {
       status: err.status || 500,
       statusText: err.statusText || ErrorTypes.INTERNAL_SERVER_ERROR,
