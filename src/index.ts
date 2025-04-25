@@ -19,3 +19,19 @@ export  {
   ResponseUtility,
   Logger,
 };
+
+export * from './Classes/Address';
+export * from './Classes/Base';
+export * from './Classes/Cart';
+export * from './Classes/Common';
+export * from './Classes/Coupon';
+export * from './Classes/Customer';
+export * from './Classes/CustomerAddress';
+export * from './Classes/Enum';
+export * from './Classes/ImageInfo';
+export * from './Classes/LineItem';
+export * from './Classes/Order';
+export * from './Classes/Payment';
+export * from './Classes/Price';
+export * from './Classes/Product';
+export * from './Classes/ShoppingContainer';
