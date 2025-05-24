@@ -3,14 +3,12 @@ import BaseModel, { BaseAttributes } from "./Base";
 
 export type CustomerAddressAttributes = BaseAttributes & {
   id: string;
-  addresses: AddressData[];
-  defaultBillingAddressId: string;
-  defaultShippingAddressId: string;
+  addresses: { [key: string]: AddressData };
+  defaultBillingAddressId?: string;
+  defaultShippingAddressId?: string;
 }
 
-type CustomerAddressWithoutDefaultAddress = Omit<CustomerAddressAttributes, 
-'addresses' | 'defaultBillingAddressId' | 'defaultShippingAddressId'> & {
-  addresses: AddressData[];
+type CustomerAddressWithoutDefaultAddress = Omit<CustomerAddressAttributes, 'defaultBillingAddressId' | 'defaultShippingAddressId'> & {
   defaultBillingAddressId: string | null;
   defaultShippingAddressId: string | null;
 };
@@ -20,9 +18,9 @@ export type CustomerAddressData = Required<CustomerAddressWithoutDefaultAddress>
 
 export default class CustomerAddressModel extends BaseModel {
   protected id: string;
-  protected addresses: AddressModel[];
-  protected defaultBillingAddressId: string;
-  protected defaultShippingAddressId: string;
+  protected addresses: { [key: string]: AddressModel };
+  protected defaultBillingAddressId: string | null;
+  protected defaultShippingAddressId: string | null;
 
   /**
    * Creates an instance of CustomerAddressModel.
@@ -33,11 +31,13 @@ export default class CustomerAddressModel extends BaseModel {
   constructor(data: CustomerAddressAttributes, date: Date = new Date()) {
     super(data, date);
     this.id = data.id;
-    this.addresses = data.addresses
-      .map((address: AddressData) => new AddressModel(address, date))
-      .sort((a, b) => b.getModifiedAtTime() - a.getModifiedAtTime());
-    this.defaultBillingAddressId = data.defaultBillingAddressId;
-    this.defaultShippingAddressId = data.defaultShippingAddressId;
+    this.addresses = { }
+    
+    Object.keys(data.addresses)
+      .map((addressId: string) => this.addresses[addressId] = new AddressModel(data.addresses[addressId], date));
+
+    this.defaultBillingAddressId = data.defaultBillingAddressId ?? null;
+    this.defaultShippingAddressId = data.defaultShippingAddressId ?? null;
   }
 
   /**
@@ -51,7 +51,10 @@ export default class CustomerAddressModel extends BaseModel {
   getDetails(withId: boolean = false): CustomerAddressData | CustomerAddressDataWithOutId {
     return {
       ...(withId ? { id: this.getId() } : {}),
-      addresses: this.getAddresses().map((address) => address.getDetails()),
+      addresses: this.getAddresses().reduce((acc, address) => {
+        acc[address.getId()] = address.getDetails();
+        return acc;
+      }, {} as Record<string, AddressData>),
       defaultBillingAddressId: this.getDefaultBillingAddressId(),
       defaultShippingAddressId: this.getDefaultShippingAddressId(),
       ...super.getDetails()
@@ -63,11 +66,12 @@ export default class CustomerAddressModel extends BaseModel {
   }
 
   /**
-   * Gets the list of all associated address models, sorted by modification date (most recent first).
+   * Gets the list of all associated address models, sorted by creation date (most recent first).
    * @returns An array of AddressModel instances.
    */
   getAddresses(): AddressModel[] {
-    return [...this.addresses];
+    return Object.values(this.addresses)
+      .sort((a, b) => b.getCreatedAtTime() - a.getCreatedAtTime());;
   }
 
   /**
@@ -75,7 +79,7 @@ export default class CustomerAddressModel extends BaseModel {
    * @returns An array of AddressModel instances marked as shipping addresses.
    */
   getShippingAddresses(): AddressModel[] {
-    return this.addresses.filter((address) => address.getIsShippingAddress());
+    return this.getAddresses().filter((address) => address.getIsShippingAddress());
   }
 
   /**
@@ -83,7 +87,7 @@ export default class CustomerAddressModel extends BaseModel {
    * @returns An array of AddressModel instances marked as billing addresses.
    */
   getBillingAddresses(): AddressModel[] {
-    return this.addresses.filter((address) => address.getIsBillingAddress());
+    return this.getAddresses().filter((address) => address.getIsBillingAddress());
   }
 
   /**
@@ -93,14 +97,14 @@ export default class CustomerAddressModel extends BaseModel {
    * @returns The ID of the default billing address, or null if no valid billing address exists.
    */
   getDefaultBillingAddressId(): string | null {
-    const explicitDefault = this.addresses.find(
+    const explicitDefault = this.getAddresses().find(
       (address) => address.getId() === this.defaultBillingAddressId && address.getIsBillingAddress()
     );
     if (explicitDefault) {
       return explicitDefault.getId();
     }
     // Fallback: Find the first address marked as billing (already sorted by most recent)
-    return this.addresses.find((address) => address.getIsBillingAddress())?.getId() || null;
+    return this.getAddresses().find((address) => address.getIsBillingAddress())?.getId() || null;
   }
 
   /**
@@ -111,13 +115,13 @@ export default class CustomerAddressModel extends BaseModel {
    */
   getDefaultShippingAddressId(): string | null {
     // Check if the explicitly set default exists, is valid, and is a shipping address
-    const explicitDefault = this.addresses.find(
+    const explicitDefault = this.getAddresses().find(
       (address) => address.getId() === this.defaultShippingAddressId && address.getIsShippingAddress()
     );
     if (explicitDefault) {
       return explicitDefault.getId();
     }
     // Fallback: Find the first address marked as shipping (already sorted by most recent)
-    return this.addresses.find((address) => address.getIsShippingAddress())?.getId() || null;
+    return this.getAddresses().find((address) => address.getIsShippingAddress())?.getId() || null;
   }
 }

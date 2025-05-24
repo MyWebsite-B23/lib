@@ -20,5 +20,6 @@ export default Object.freeze({
     SYSTEM_SESSION_NOT_ALLOWED: "System Session Not Allowed",
     CDN_SESSION_NOT_ALLOWED: "CDN Session Not Allowed",
     INTERNAL_SERVER_ERROR: "Internal Server Error",
-    SOMETHING_WENT_WRONG: 'Something went wrong'
+    SOMETHING_WENT_WRONG: 'Something went wrong',
+    AUTH_CONTEXT_NOT_INITIALIZED: 'Auth Context not Initialized'
 })

@@ -1,10 +1,192 @@
 {
   "name": "b23-lib",
-  "version": "1.7.0",
+  "version": "1.7.35",
   "description": "This repo hold common classes, type and util functiona",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./customer": {
+      "import": {
+        "types": "./dist/Classes/Customer.d.mts",
+        "default": "./dist/Classes/Customer.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/Customer.d.ts",
+        "default": "./dist/Classes/Customer.js"
+      }
+    },
+    "./address": {
+      "import": {
+        "types": "./dist/Classes/Address.d.mts",
+        "default": "./dist/Classes/Address.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/Address.d.ts",
+        "default": "./dist/Classes/Address.js"
+      }
+    },
+    "./base": {
+      "import": {
+        "types": "./dist/Classes/Base.d.mts",
+        "default": "./dist/Classes/Base.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/Base.d.ts",
+        "default": "./dist/Classes/Base.js"
+      }
+    },
+    "./cart": {
+      "import": {
+        "types": "./dist/Classes/Cart.d.mts",
+        "default": "./dist/Classes/Cart.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/Cart.d.ts",
+        "default": "./dist/Classes/Cart.js"
+      }
+    },
+    "./common": {
+      "import": {
+        "types": "./dist/Classes/Common.d.mts",
+        "default": "./dist/Classes/Common.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/Common.d.ts",
+        "default": "./dist/Classes/Common.js"
+      }
+    },
+    "./enum": {
+      "import": {
+        "types": "./dist/Classes/Enum.d.mts",
+        "default": "./dist/Classes/Enum.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/Enum.d.ts",
+        "default": "./dist/Classes/Enum.js"
+      }
+    },
+    "./coupon": {
+      "import": {
+        "types": "./dist/Classes/Coupon.d.mts",
+        "default": "./dist/Classes/Coupon.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/Coupon.d.ts",
+        "default": "./dist/Classes/Coupon.js"
+      }
+    },
+    "./customer-address": {
+      "import": {
+        "types": "./dist/Classes/CustomerAddress.d.mts",
+        "default": "./dist/Classes/CustomerAddress.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/CustomerAddress.d.ts",
+        "default": "./dist/Classes/CustomerAddress.js"
+      }
+    },
+    "./image-info": {
+      "import": {
+        "types": "./dist/Classes/ImageInfo.d.mts",
+        "default": "./dist/Classes/ImageInfo.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/ImageInfo.d.ts",
+        "default": "./dist/Classes/ImageInfo.js"
+      }
+    },
+    "./line-item": {
+      "import": {
+        "types": "./dist/Classes/LineItem.d.mts",
+        "default": "./dist/Classes/LineItem.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/LineItem.d.ts",
+        "default": "./dist/Classes/LineItem.js"
+      }
+    },
+    "./order": {
+      "import": {
+        "types": "./dist/Classes/Order.d.mts",
+        "default": "./dist/Classes/Order.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/Order.d.ts",
+        "default": "./dist/Classes/Order.js"
+      }
+    },
+    "./payment": {
+      "import": {
+        "types": "./dist/Classes/Payment.d.mts",
+        "default": "./dist/Classes/Payment.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/Payment.d.ts",
+        "default": "./dist/Classes/Payment.js"
+      }
+    },
+    "./price": {
+      "import": {
+        "types": "./dist/Classes/Price.d.mts",
+        "default": "./dist/Classes/Price.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/Price.d.ts",
+        "default": "./dist/Classes/Price.js"
+      }
+    },
+    "./product": {
+      "import": {
+        "types": "./dist/Classes/Product.d.mts",
+        "default": "./dist/Classes/Product.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/Product.d.ts",
+        "default": "./dist/Classes/Product.js"
+      }
+    },
+    "./shopping-container": {
+      "import": {
+        "types": "./dist/Classes/ShoppingContainer.d.mts",
+        "default": "./dist/Classes/ShoppingContainer.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/ShoppingContainer.d.ts",
+        "default": "./dist/Classes/ShoppingContainer.js"
+      }
+    },
+    "./dynamodb": {
+      "import": {
+        "types": "./dist/Dynamodb/index.d.mts",
+        "default": "./dist/Dynamodb/index.mjs"
+      },
+      "require": {
+        "types": "./dist/Dynamodb/index.d.ts",
+        "default": "./dist/Dynamodb/index.js"
+      }
+    },
+    "./auth": {
+      "import": {
+        "types": "./dist/Auth/index.d.mts",
+        "default": "./dist/Auth/index.mjs"
+      },
+      "require": {
+        "types": "./dist/Auth/index.d.ts",
+        "default": "./dist/Auth/index.js"
+      }
+    }
+  },
   "repository": {
     "url": "https://github.com/MyWebsite-B23/util-lib.git"
   },
@@ -19,6 +201,7 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.620.0",
     "@aws-sdk/util-dynamodb": "^3.620.0",
+    "b23-lib": "^1.7.3",
     "jose": "^5.6.3"
   },
   "devDependencies": {

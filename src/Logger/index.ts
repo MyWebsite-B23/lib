@@ -1,4 +1,4 @@
-import util from 'node:util';
+import util from 'util';
 const Logger = {
   logException: (functionName: string, error: any) => {
     console.error(`Exception Occurred in Function: ${functionName}, Error: ${Logger.inspect(error)}`);

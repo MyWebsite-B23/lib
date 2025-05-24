@@ -1,7 +1,15 @@
+import { AuthType } from "../Auth";
 import { ISODateTime } from "./Common";
 
 export interface CustomFields {
   [key: string]: any;
+}
+
+export type ModifiedBy = {
+  id?: string;
+  authType?: string;
+  requestId?: string;
+  lambdaName?: string;
 }
 
 export type BaseAttributes = {
@@ -9,16 +17,10 @@ export type BaseAttributes = {
   version?: number;
   createdAt?: ISODateTime;
   modifiedAt?: ISODateTime;
-  modifiedBy?: string;
+  modifiedBy?: ModifiedBy;
 };
 
-export type BaseData = {
-  customFields: CustomFields;
-  version: number;
-  createdAt: ISODateTime;
-  modifiedAt: ISODateTime;
-  modifiedBy: string;
-};
+export type BaseData = Required<BaseAttributes>;
 
 /**
  * Provides common foundational properties and methods for other data models.
@@ -29,7 +31,7 @@ export default class BaseModel {
   protected version: number;
   protected createdAt: ISODateTime;
   protected modifiedAt: ISODateTime;
-  protected modifiedBy: string;
+  protected modifiedBy: ModifiedBy;
 
   /**
    * Creates an instance of BaseModel.
@@ -49,7 +51,7 @@ export default class BaseModel {
       ? new Date(data.modifiedAt).toISOString()
       : date.toISOString();
 
-    this.modifiedBy = data.modifiedBy ?? '';
+    this.modifiedBy = { ...data.modifiedBy };
   }
 
   /**
@@ -109,18 +111,23 @@ export default class BaseModel {
 
   /**
    * Gets the identifier of the user or process that last modified the instance.
-   * @returns The modifier identifier string.
+   * @returns
    */
-  getModifiedBy(): string {
-    return this.modifiedBy;
+  getModifiedBy(): ModifiedBy {
+    return { ...this.modifiedBy };
   }
 
   /**
    * Sets the identifier of the user or process that last modified the instance.
    * @param modifiedBy - The identifier string.
    */
-  setModifiedBy(modifiedBy: string): void {
-    this.modifiedBy = modifiedBy;
+  setModifiedBy(id?: string, authType?: AuthType, requestId?: string, lambdaName?: string): void {
+    this.modifiedBy = {
+      id,
+      authType,
+      requestId,
+      lambdaName,
+    };
   }
 
   /**

@@ -50,15 +50,23 @@ const Fetch = async (
     const response: any = await fetch(completeURL, options);
 
     if (!response.ok) {
-      const errorBody: any = await response.json().catch(() => response.text());
+      let errorBody: any;
+      const errorText = await response.text();
+
+      try {
+        errorBody = JSON.parse(errorText);
+      } catch (parseError) {
+        errorBody = {
+            status: response.status,
+            error: errorText || response.statusText
+        };
+        Logger.logWarning('Fetch', `Failed to parse error response body as JSON for URL-${completeURL}. Raw text: ${errorText}`);
+      }
 
       throw {
         status: response.status,
         statusText: response.statusText,
-        error: errorBody ? errorBody : {
-          status: response.status,
-          error: response.statusText,
-        }
+        error: errorBody
       } as ErrorType;
     }
 

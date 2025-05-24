@@ -10,7 +10,7 @@ export enum AddressType {
 export type AddressAttributes = BaseAttributes & {
   id: string;
   firstName: string;
-  lastName: string;
+  lastName?: string;
   phone: string;
   email: string;
   addressLine1: string;
@@ -53,7 +53,7 @@ export default class AddressModel extends BaseModel {
     super(data, date);
     this.id = data.id;
     this.firstName = data.firstName;
-    this.lastName = data.lastName;
+    this.lastName = data.lastName || '';
     this.phone = data.phone;
     this.email = data.email;
     this.addressLine1 = data.addressLine1;

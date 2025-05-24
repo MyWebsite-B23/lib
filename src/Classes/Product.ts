@@ -1,5 +1,5 @@
 import BaseModel, { BaseAttributes } from "./Base";
-import { BasePriceList, PriceTierList, Color, LocalizedString, CountryCode, LocaleCode } from './Common';
+import { BasePriceList, PriceTierList, Color, LocalizedString, CountryCode, LocaleCode, BasePrice } from './Common';
 import { GenderCategory } from "./Enum";
 import ImageInfoModel, { ImageInfoData } from "./ImageInfo";
 
@@ -38,7 +38,7 @@ export type ProductAttributes = BaseAttributes & {
     isActive: boolean;
     targetGender: GenderCategory;
     categories: string[];
-    specifications: { [locale: string]: { [key: string]: string | string[] } };
+    specifications: LocalizedProductSpecification;
     searchTags?: string[];
 };
 
@@ -208,25 +208,37 @@ export default class ProductModel extends BaseModel {
   }
 
   /**
-   * Gets the list of base prices. Returns copies of the price objects.
-   * Optionally filters by country.
-   * @param country - Optional country code to filter prices for.
-   * @returns A list of base prices (or an empty list if none match).
+   * Gets the base price(s) for the product variant.
+   * If a country code is provided, it returns the specific base price defined for that country, or null if no price is defined for that country.
+   * If no country code is provided, it returns a list of all defined base prices across different countries.
+   * Returns copies of the price objects to prevent modification of internal state.
+   *
+   * @param country - Optional country code to retrieve the base price for a specific region.
    */
-  getBasePrices(country?: CountryCode): BasePriceList {
-    const filteredPrices = country ? this.basePrices.filter(price => price.country === country) : this.basePrices;
-    return filteredPrices.map(price => ({ ...price }));
+  getBasePrices(): BasePriceList
+  getBasePrices(country: CountryCode): BasePrice | null
+  getBasePrices(country?: CountryCode): BasePriceList | BasePrice | null {
+    if(country) {
+      const countryPrice = this.basePrices.find(price => price.country === country);
+      return countryPrice ? { ...countryPrice } : null;
+    }
+
+    return this.basePrices.map(price => ({ ...price }));
   }
 
   /**
-   * Gets the list of quantity-based price tiers. Returns copies of the tier objects.
-   * Optionally filters by country.
-   * @param country - Optional country code to filter tiers for.
-   * @returns A list of price tiers (or an empty list if none match or none exist).
+   * Gets the list of quantity-based price tiers for the product variant, sorted by minimum quantity in ascending order.
+   * Returns copies of the price tier objects to prevent modification of internal state.
+   * If a country code is provided, the list is filtered to include only tiers applicable to that country.
+   *
+   * @param country - Optional country code to filter the price tiers for a specific region.
+   * @returns A sorted list (by `minQuantity`) of applicable `PriceTier` objects. Returns an empty list if no tiers are defined or if none match the specified country.
    */
   getPriceTiers(country?: CountryCode): PriceTierList {
     const filteredTiers = country ? this.priceTiers.filter(tier => tier.country === country) : this.priceTiers;
-    return filteredTiers.map(tier => ({ ...tier }));
+    return filteredTiers
+      .map(tier => ({ ...tier }))
+      .sort((a,b) => a.minQuantity - b.minQuantity);
   }
 
   /**
@@ -236,7 +248,7 @@ export default class ProductModel extends BaseModel {
   getAttributes(): { color: Color; sizes: string[] } {
       return {
           ...this.attributes,
-          color: { ...this.attributes.color }, // Copy color object
+          color: { ...this.attributes.color },
           sizes: [...this.attributes.sizes]
       };
   }
@@ -362,4 +374,23 @@ export default class ProductModel extends BaseModel {
     // Calculate percentage
     return (discount / basePrice.unitPrice) * 100;
   }
+
+  /**
+   * Gets the minimum quantity required to purchase this product variant in a specific country,
+   * based on the lowest minimum quantity defined in its price tiers for that country.
+   *
+   * @param country - The country code for which to determine the minimum purchase quantity.
+   * @returns The minimum quantity required.
+   * @throws {Error} If no price tiers are defined for the specified country.
+   */
+  getMinQuantity(country: CountryCode): number {
+    const priceTiers = this.getPriceTiers(country);
+
+    if (priceTiers.length === 0) {
+      throw Error('No price tiers found for country');
+    }
+    return priceTiers[0].minQuantity;
+  }
+
+  
 }

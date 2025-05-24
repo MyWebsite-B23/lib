@@ -5,6 +5,15 @@ import { CountryCode, CurrencyCode, LocaleCode, ShippingDetails } from "./Common
 import PriceModel from "./Price";
 import CouponModel, { CouponCategory, CouponData, CouponDiscountMethod } from "./Coupon";
 
+export type ShoppingContainerTotal = {
+  shipping?: number;
+  effectiveShipping?: number;
+  subtotal?: number;
+  mrpTotal?: number;
+  couponTotal?: { [key: string]: number };
+  grandTotal?: number;
+}
+
 export type BaseShoppingContainerAttributes = BaseAttributes & {
   id: string;
   customerId?: string;
@@ -15,14 +24,7 @@ export type BaseShoppingContainerAttributes = BaseAttributes & {
   shippingAddress?: AddressData | null;
   billingAddress?: AddressData | null;
   coupons?: CouponData[];
-  total?: {
-    shipping?: number;
-    effectiveShipping?: number;
-    subtotal?: number;
-    mrpTotal?: number;
-    couponTotal?: { [key: string]: number };
-    grandTotal?: number;
-  };
+  total?: ShoppingContainerTotal;
   country: CountryCode;
   currency: CurrencyCode;
   locale: LocaleCode;
@@ -160,6 +162,14 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
   }
 
   /**
+   * Gets current number of line items in the container
+   * @returns 
+   */
+  public getLineItemsCount(): number {
+    return this.lineItems.length;
+  }
+
+  /**
    * Gets a copy of the shipping details associated with the container.
    * @returns A ShippingDetails object, or null if none are set.
    */
@@ -177,6 +187,22 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
     return this.shippingAddress ? new AddressModel(this.shippingAddress.getDetails()) : null;
   }
 
+  /**
+   * Checks if a shipping address is associated with this container.
+   * @returns True if a shipping address is set, false otherwise.
+   */
+  public hasShippingAddress(): boolean {
+    return !!this.shippingAddress;
+  }
+
+  /**
+   * Checks if a billing address is associated with this container.
+   * @returns True if a billing address is set, false otherwise.
+   */
+  public hasBillingAddress(): boolean {
+    return !!this.billingAddress;
+  }
+  
   /**
    * Gets a defensive copy of the billing address associated with the container.
    * Returns a new AddressModel instance created from the original's details.

@@ -129,7 +129,7 @@
       },
       "addressType": {
           "type": "string",
-          "enum": ["shipping", "billing", "shipping&billing"]
+          "enum": ["shipping", "billing", "billing&shipping"]
       },
       "address": {
           "type": "object",

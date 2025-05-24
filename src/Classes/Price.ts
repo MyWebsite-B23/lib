@@ -39,26 +39,41 @@ export default class PriceModel {
   }
 
   /**
+   * Gets a locale-aware formatted display string for the price stored in this instance.
+   * Uses the static `PriceModel.getFormattedString` method for the actual formatting.
+   * @param locale - The locale code (e.g., 'en-IN') to use for formatting rules.
+   * @returns The formatted price string according to locale rules.
+   * @throws {Error} If the currency mapping for the instance's country is not found (via the static method).
+   */
+  public getFormattedString(locale: LocaleCode){
+    return PriceModel.getFormattedString(this.price, this.country, locale);
+  }
+
+  /**
    * Gets a locale-aware formatted display string for the price.
    * Uses Intl.NumberFormat for accurate formatting based on locale and currency.
-   * @param locale - The locale code (e.g., 'en-US', 'de-DE', 'en-IN') to use for formatting rules.
+   * @param price - The initial price value.
+   * @param country - The country code used for rounding and determining the currency symbol.
+   * @param locale - The locale code (e.g., 'en-IN') to use for formatting rules.
    * @param options - Configuration options for formatting.
    * @param options.displayAsInteger - If true, the formatted string will show the price rounded to the nearest integer (no decimals). Defaults to false.
+   * @param options.style - The style of formatting, either 'currency' or 'decimal'. Defaults to 'currency'.
+   * @param options.currencyDisplay - The display format for the currency symbol. Options are 'symbol', 'narrowSymbol', 'code', or 'name'. Defaults to 'symbol'.
    * @returns The formatted price string according to locale rules.
    */
-  public getFormattedString(locale: LocaleCode, options: { displayAsInteger?: boolean, currencyDisplay?: 'symbol' | 'narrowSymbol' | 'code' | 'name' } = {}): string {
+  static getFormattedString(price: number, country: CountryCode, locale?: LocaleCode, options: { displayAsInteger?: boolean, style?: 'currency' | 'decimal', currencyDisplay?: 'symbol' | 'narrowSymbol' | 'code' | 'name' } = {}): string {
     const displayAsInteger = options.displayAsInteger ?? false;
-    const currency: CurrencyCode | undefined = CountryCurrencyMap[this.country];
+    const currency: CurrencyCode | undefined = CountryCurrencyMap[country];
 
     if (currency === undefined) {
       throw new Error('Currency mapping not found for CountryCode');
     }
 
-    let valueToFormat = this.price;
+    let valueToFormat = price;
     const fractionDigits = displayAsInteger ? 0 : PriceModel.getDecimalPlaces(currency);
 
     let formattingOptions: Intl.NumberFormatOptions = {
-        style: 'currency',
+        style: options.style ?? 'currency',
         currency: currency,
         signDisplay: 'never',
         currencyDisplay: options.currencyDisplay,
@@ -73,7 +88,7 @@ export default class PriceModel {
     try {
         return new Intl.NumberFormat(locale, formattingOptions).format(valueToFormat);
     } catch (error) {
-        console.error(`Error formatting price for locale "${locale}" and currency "${currency}":`, error);
+        console.error(`Error formatting price for country "${country}" and currency "${currency}":`, error);
         // Basic fallback without symbol if Intl fails completely
         return `${CurrencySymbolMap[currency] ?? currency} ${PriceModel.addThousandSeparators(valueToFormat.toFixed(fractionDigits))}`;
     }
@@ -145,5 +160,3 @@ export default class PriceModel {
   }
 
 }
-
-PriceModel.getRoundedPrice(-1, 'IN')

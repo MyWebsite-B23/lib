@@ -12,7 +12,7 @@ export const ResponseUtility = {
     } else if(error.status && error.error) {
       Logger.logException(functionName, error);
       res.status(error.status).json({
-        ...error.error,
+        error: error.errorMessage || JSON.stringify(error.error),
         status: error.status,
       });
     } else {

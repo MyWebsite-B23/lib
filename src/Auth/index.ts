@@ -1,38 +1,60 @@
-import { importPKCS8, importSPKI, jwtVerify, SignJWT} from 'jose';
+import { decodeJwt, importPKCS8, importSPKI, jwtVerify, SignJWT} from 'jose';
 import ErrorTypes from '../enums/ErrorTypes';
 import Logger from '../Logger';
 import Utils from '../Utils';
 import ResponseUtility from '../Utils/response';
 import assert from 'assert';
 import Fetch from '../Utils/fetch';
+import AuthContext from './AuthContext';
 
 type StringifiedJSONArray = string;
 
+export type AuthPayloadData = {
+  id: string;
+  type: AuthType;
+  verifier?: string;
+  [key: string]: any;
+}
+
 export interface AuthUtilityConfig {
-  maxTokenAge: string;
+  userTokenAge: string;
   userPrivateKeys: StringifiedJSONArray;
   userPublicKeys: StringifiedJSONArray;
+  anonymousTokenAge: string;
   anonymousPrivateKeys: StringifiedJSONArray;
   anonymousPublicKeys: StringifiedJSONArray;
+  systemTokenAge: string;
   systemPrivateKeys: StringifiedJSONArray;
   systemPublicKeys: StringifiedJSONArray;
+  adminTokenAge: string;
   adminPrivateKeys: StringifiedJSONArray;
   adminPublicKeys: StringifiedJSONArray;
+  cdnKeys: StringifiedJSONArray;
 }
 
 export const DefaultAuthUtilityConfig: Readonly<AuthUtilityConfig> = {
-  maxTokenAge: '30 days',
+  userTokenAge: '30 days',
   userPrivateKeys: '[]',
   userPublicKeys: '[]',
+  anonymousTokenAge: '30 days',
   anonymousPrivateKeys: '[]',
   anonymousPublicKeys: '[]',
+  systemTokenAge: '5 min',
   systemPrivateKeys: '[]',
   systemPublicKeys: '[]',
+  adminTokenAge: '30 days',
   adminPrivateKeys: '[]',
   adminPublicKeys: '[]',
+  cdnKeys: '[]',
 };
 
-export type AuthTokenType = 'Anon' | 'User' | 'System' | 'Admin' | 'CDN';
+export enum AuthType {
+  ANON = 'Anon',
+  USER = 'User',
+  SYSTEM = 'System',
+  ADMIN = 'Admin',
+  CDN = 'CDN'
+}
 
 export interface AuthMiddlewareConfig {
   allowAnonymous: boolean;
@@ -52,15 +74,23 @@ export const DefaultAuthMiddlewareConfig: Readonly<AuthMiddlewareConfig> = {
  * A utility class for JWT authentication and authorization.
  */
 class AuthUtility {
-  private maxTokenAge: string;
+  private userTokenAge: string;
   private userPrivateKeys: string[];
   private userPublicKeys: string[];
+
+  private anonymousTokenAge: string;
   private anonymousPrivateKeys: string[];
   private anonymousPublicKeys: string[];
+
+  private systemTokenAge: string;
   private systemPrivateKeys: string[];
   private systemPublicKeys: string[];
+
+  private adminTokenAge: string;
   private adminPrivateKeys: string[];
   private adminPublicKeys: string[];
+
+  private cdnKeys: string[];
 
   /**
    * Initializes the AuthUtility class with a configuration.
@@ -68,32 +98,54 @@ class AuthUtility {
    */
   constructor(config: Partial<AuthUtilityConfig> = DefaultAuthUtilityConfig) {
     const {
-      maxTokenAge,
+      userTokenAge,
       userPrivateKeys,
       userPublicKeys,
+      anonymousTokenAge,
       anonymousPrivateKeys,
       anonymousPublicKeys,
+      systemTokenAge,
       systemPrivateKeys,
       systemPublicKeys,
+      adminTokenAge,
       adminPrivateKeys,
       adminPublicKeys,
+      cdnKeys
     } = { ...DefaultAuthUtilityConfig, ...config };
 
-    this.maxTokenAge = maxTokenAge;
+    this.userTokenAge = userTokenAge;
+    this.userPrivateKeys = this.parseKeyArray(userPrivateKeys, 'user private');
+    this.userPublicKeys = this.parseKeyArray(userPublicKeys, 'user public');
 
-    this.userPrivateKeys = JSON.parse(userPrivateKeys);
-    this.userPublicKeys = JSON.parse(userPublicKeys);
+    this.anonymousTokenAge = anonymousTokenAge;
+    this.anonymousPrivateKeys = this.parseKeyArray(anonymousPrivateKeys, 'anonymous private');
+    this.anonymousPublicKeys = this.parseKeyArray(anonymousPublicKeys, 'anonymous public');
 
-    this.anonymousPrivateKeys = JSON.parse(anonymousPrivateKeys);
-    this.anonymousPublicKeys = JSON.parse(anonymousPublicKeys);
+    this.systemTokenAge = systemTokenAge;
+    this.systemPrivateKeys = this.parseKeyArray(systemPrivateKeys, 'system private');
+    this.systemPublicKeys = this.parseKeyArray(systemPublicKeys, 'system public');
 
-    this.systemPrivateKeys = JSON.parse(systemPrivateKeys);
-    this.systemPublicKeys = JSON.parse(systemPublicKeys);
+    this.adminTokenAge = adminTokenAge;
+    this.adminPrivateKeys = this.parseKeyArray(adminPrivateKeys, 'admin private');
+    this.adminPublicKeys = this.parseKeyArray(adminPublicKeys, 'admin public');
 
-    this.adminPrivateKeys = JSON.parse(adminPrivateKeys);
-    this.adminPublicKeys = JSON.parse(adminPublicKeys);
+    this.cdnKeys = this.parseKeyArray(cdnKeys, 'cdn');
 
     this.logWarnings();
+  }
+
+  private parseKeyArray(jsonString: string, keyType: string): string[] {
+    try {
+        const parsed = JSON.parse(jsonString);
+        if (!Array.isArray(parsed) || !parsed.every(item => typeof item === 'string')) {
+            Logger.logError('AuthUtility', `Invalid format for ${keyType} keys in config: Expected stringified array of strings.`);
+            return [];
+        }
+        return parsed;
+    } catch (error) {
+        Logger.logError('AuthUtility', `Failed to parse ${keyType} keys from config: ${error}`);
+        return [];
+    }
   }
 
   /**
@@ -117,7 +169,7 @@ class AuthUtility {
     warn('admin public', this.adminPublicKeys, 3);
   }
 
-  private async createSignedJWT(payload: any, privateKeyString: string, expiration: string){
+  private async createSignedJWT(payload: AuthPayloadData, privateKeyString: string, expiration: string){
     const privateKey = await importPKCS8(privateKeyString, 'RS256');
     const token = await new SignJWT(payload)
         .setProtectedHeader({ alg: 'RS256' })
@@ -128,21 +180,21 @@ class AuthUtility {
     return token;
   }
 
-  private async verifySignedJWT(token: string, publicKeyString: string[], expiration: string){
-    for(let i = publicKeyString.length - 1; i > 0 ; i--){
+  private async verifySignedJWT(token: string, publicKeyString: string[], expiration: string): Promise<AuthPayloadData> {
+    for(let i = publicKeyString.length - 1; i >= 0 ; i--){
       try { 
         const publicKey = await importSPKI(publicKeyString[i], 'RS256')
         const jwt = await jwtVerify(token, publicKey, {  clockTolerance: 30, maxTokenAge: expiration });
-        return jwt.payload;
+        return jwt.payload as AuthPayloadData;
       } catch (error) {
+        if (i === 0) {
+          throw error;
+        }
         // Try with the next oldest key
         continue;
       }
     }
-
-    const publicKey = await importSPKI(publicKeyString[0], 'RS256')
-    const jwt = await jwtVerify(token, publicKey, {  clockTolerance: 30, maxTokenAge: expiration });
-    return jwt.payload;
+    throw new Error(ErrorTypes.INVALID_TOKEN);
   }
 
   
@@ -160,11 +212,11 @@ class AuthUtility {
     assert(Utils.isUUID(id), ErrorTypes.INVALID_UUID);
     const payload = {
         id,
-        type: 'Anon',
+        type: AuthType.ANON,
         ...additionalData
     };
 
-    return await this.createSignedJWT(payload, this.anonymousPrivateKeys[this.anonymousPrivateKeys.length - 1], this.maxTokenAge);
+    return await this.createSignedJWT(payload, this.anonymousPrivateKeys[this.anonymousPrivateKeys.length - 1], this.anonymousTokenAge);
   }
 
   /**
@@ -176,8 +228,8 @@ class AuthUtility {
    */
   async verifyAnonymousToken(token: string){
     assert(this.anonymousPublicKeys.length, ErrorTypes.ANONYMOUS_PUBLIC_KEY_NOT_FOUND);
-    const payload = await this.verifySignedJWT(token, this.anonymousPublicKeys, this.maxTokenAge);
-    assert(payload.type === 'Anon', ErrorTypes.INVALID_AUTH_TYPE);
+    const payload = await this.verifySignedJWT(token, this.anonymousPublicKeys, this.anonymousTokenAge);
+    assert(payload.type === AuthType.ANON, ErrorTypes.INVALID_AUTH_TYPE);
     return payload;
   }
 
@@ -195,10 +247,10 @@ class AuthUtility {
 
     const payload = {
         id,
-        type: 'User',
+        type: AuthType.USER,
         ...additionalData
     };
-    return await this.createSignedJWT(payload, this.userPrivateKeys[this.userPrivateKeys.length - 1], this.maxTokenAge);
+    return await this.createSignedJWT(payload, this.userPrivateKeys[this.userPrivateKeys.length - 1], this.userTokenAge);
   }
 
   /**
@@ -210,8 +262,8 @@ class AuthUtility {
    */
   async verifyUserToken(token: string){
     assert(this.userPublicKeys.length, ErrorTypes.USER_PUBLIC_KEY_NOT_FOUND);
-    const payload =await this.verifySignedJWT(token, this.userPublicKeys, this.maxTokenAge);
-    assert(payload.type === 'User', ErrorTypes.INVALID_AUTH_TYPE);
+    const payload = await this.verifySignedJWT(token, this.userPublicKeys, this.userTokenAge);
+    assert(payload.type === AuthType.USER, ErrorTypes.INVALID_AUTH_TYPE);
     return payload;
   }
 
@@ -228,10 +280,10 @@ class AuthUtility {
 
     const payload = {
         id,
-        type: 'System',
+        type: AuthType.SYSTEM,
         ...additionalData
     };
-    return await this.createSignedJWT(payload, this.systemPrivateKeys[this.systemPrivateKeys.length - 1], '5 min');
+    return await this.createSignedJWT(payload, this.systemPrivateKeys[this.systemPrivateKeys.length - 1], this.systemTokenAge);
   }
 
   /**
@@ -243,8 +295,8 @@ class AuthUtility {
    */
   async verifySystemToken(token: string){
     assert(this.systemPublicKeys.length, ErrorTypes.USER_PUBLIC_KEY_NOT_FOUND);
-    const payload = await this.verifySignedJWT(token, this.systemPublicKeys, '5 min');
-    assert(payload.type === 'System', ErrorTypes.INVALID_AUTH_TYPE);
+    const payload = await this.verifySignedJWT(token, this.systemPublicKeys, this.systemTokenAge);
+    assert(payload.type === AuthType.SYSTEM, ErrorTypes.INVALID_AUTH_TYPE);
     return payload;
   }
 
@@ -262,12 +314,12 @@ class AuthUtility {
     assert(Utils.isEmail(email), ErrorTypes.INVALID_EMAIL);
     assert(Utils.isURL(verifier), ErrorTypes.INVALID_VERIFIER);
     const payload = {
-        email,
-        type: 'Admin',
+        id: email,
+        type: AuthType.ADMIN,
         verifier: verifier,
         ...additionalData
     };
-    return await this.createSignedJWT(payload, this.adminPrivateKeys[this.adminPrivateKeys.length - 1], this.maxTokenAge);
+    return await this.createSignedJWT(payload, this.adminPrivateKeys[this.adminPrivateKeys.length - 1], this.adminTokenAge);
   }
 
   /**
@@ -283,8 +335,8 @@ class AuthUtility {
    */
   async verifyAdminToken(token: string, permissions: string[], authenticate: boolean){
     assert(this.adminPublicKeys.length, ErrorTypes.ADMIN_PUBLIC_KEY_NOT_FOUND);
-    const payload = await this.verifySignedJWT(token, this.adminPublicKeys, this.maxTokenAge);
-    assert(payload.type === 'Admin', ErrorTypes.INVALID_AUTH_TYPE);
+    const payload = await this.verifySignedJWT(token, this.adminPublicKeys, this.adminTokenAge);
+    assert(payload.type === AuthType.ADMIN, ErrorTypes.INVALID_AUTH_TYPE);
 
     if(authenticate) {
       const response = await Fetch(payload.verifier as string, '', 'POST', {}, { token, permissions });
@@ -294,6 +346,17 @@ class AuthUtility {
         throw ResponseUtility.generateError(403, ErrorTypes.INVALID_PERMISSIONS)
       }
     }
+
+    return payload;
+  }
+
+  async verifyCDNToken(token: string) {
+    assert(this.cdnKeys.includes(token), ErrorTypes.INVALID_TOKEN);
+
+    const payload: AuthPayloadData = {
+      id: token,
+      type: AuthType.CDN,
+    };
 
     return payload;
   }
@@ -313,34 +376,31 @@ class AuthUtility {
         if (!token) throw new Error(ErrorTypes.INVALID_TOKEN);
 
         let payload;
-        switch (authType as AuthTokenType) {
-          case 'Anon':
+        switch (authType as AuthType) {
+          case AuthType.ANON:
             if (!allowAnonymous) throw ResponseUtility.generateError(403, ErrorTypes.ANONYMOUS_SESSION_NOT_ALLOWED);
             payload = await this.verifyAnonymousToken(token);
             break;
-          case 'User':
+          case AuthType.USER:
             if (!allowUser) throw ResponseUtility.generateError(403, ErrorTypes.USER_SESSION_NOT_ALLOWED);
             payload = await this.verifyUserToken(token);
             break;
-          case 'System':
+          case AuthType.SYSTEM:
             if (!allowSystem) throw ResponseUtility.generateError(403, ErrorTypes.SYSTEM_SESSION_NOT_ALLOWED);
             payload = await this.verifySystemToken(token);
-            Logger.logMessage('AuthMiddleware', `System Name - ${payload.id}`);
             break;
-          case 'Admin':
+          case AuthType.ADMIN:
             payload = await this.verifyAdminToken(token, permissions, true);
-            Logger.logMessage('AuthMiddleware', `Admin - ${payload.email}`);
             break;
-          case 'CDN':
+          case AuthType.CDN:
             if (!allowCDN) throw ResponseUtility.generateError(403, ErrorTypes.CDN_SESSION_NOT_ALLOWED);
-            assert(['E3CQMOP5FX6KD1', 'E3TNCKKZ3FOX9W'].includes(token), ErrorTypes.INVALID_TOKEN);
-            Logger.logMessage('AuthMiddleware', `CDN DistributionId - ${token}`);
+            payload = await this.verifyCDNToken(token);
+
             break;
           default:
             throw ResponseUtility.generateError(403, ErrorTypes.INVALID_AUTH_TYPE);
         }
 
-        res.locals.auth = { authType, token, ...payload };
         next();
       } catch (error: any) {
         Logger.logError('AuthMiddleware', error);
@@ -352,7 +412,58 @@ class AuthUtility {
       }
     };
   }
+
+  /**
+   * Decodes the payload of a JWT using jose.decodeJwt without verifying
+   * the signature or expiration.
+   * WARNING: This is insecure as it doesn't validate the token's integrity.
+   * Use only when you understand the risks and have a specific need.
+   *
+   * @param token - The JWT string.
+   * @returns The decoded payload object, or null if the token format is invalid or decoding fails.
+   */
+  decodeJWTPayloadWithJose(token: string): Record<string, any> | null {
+    if (!token || typeof token !== 'string') {
+      Logger.logError("AuthContextMiddleware", "Invalid token provided for decoding.");
+      return null;
+    }
+
+    try {
+      const payload = decodeJwt(token);
+      return payload;
+    } catch (error) {
+      Logger.logError("AuthContextMiddleware", `Failed to decode JWT payload: ${error}`);
+      return null;
+    }
+  }
+
+  AuthContextMiddleware() {
+    return async (req: any, res: any, next: any) => {
+      try {
+        const [authType, token] = req.get('Authorization')?.split(' ') || [];
+        let payload = authType === AuthType.CDN ? { id: token, type: AuthType.CDN } : this.decodeJWTPayloadWithJose(token);
+
+        const authContext = AuthContext.init(payload?.id || token, payload?.type || authType, token, req.get('x-request-id'));
+        Logger.logMessage('AuthContextMiddleware', `AuthContext initialized: ${authContext.getType() || 'No-Type'} - ${authContext.getId() || 'No-Id'}`);
+
+        res.on('finish', () => {
+          Logger.logMessage('AuthContextMiddleware', 'Uninitializing AuthContext');
+          AuthContext.uninit();
+        });
+
+        next();
+      } catch (error: any) {
+        Logger.logError('AuthContextMiddleware', error);
+        ResponseUtility.handleException(
+          'AuthContextMiddleware',
+          ResponseUtility.generateError(500, error.error || ErrorTypes.INTERNAL_SERVER_ERROR, true),
+          res
+        );
+      }
+    };
+  }
 }
 
 export default AuthUtility;
+export { AuthContext };
 

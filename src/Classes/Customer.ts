@@ -12,7 +12,7 @@ export enum CustomerStatus {
 export type CustomerAttributes = BaseAttributes & {
   id: string;
   email: string;
-  phone: string;
+  phone?: string;
   firstName: string;
   lastName: string;
   isEmailVerified?: boolean;
@@ -21,7 +21,7 @@ export type CustomerAttributes = BaseAttributes & {
 
 
 type CustomerDataWithArrayStatus = Omit<CustomerAttributes, 'customerStatus'> & BaseData & { customerStatus: CustomerStatus[]; }
-export type CustomerData = Required<CustomerDataWithArrayStatus>;
+export type CustomerData = Required<Omit<CustomerDataWithArrayStatus, 'phone'>> & { phone?: string};
 export type CustomerDataWithOutId = Omit<CustomerData, 'id'>;
 
 /**
@@ -30,7 +30,7 @@ export type CustomerDataWithOutId = Omit<CustomerData, 'id'>;
 export default class CustomerModel extends BaseModel {
   protected id: string;
   protected email: string;
-  protected phone: string;
+  protected phone?: string;
   protected firstName: string;
   protected lastName: string;
   protected isEmailVerified: boolean;
@@ -96,7 +96,7 @@ export default class CustomerModel extends BaseModel {
    * Gets the phone number of the customer.
    * @returns The phone number.
    */
-  getPhone(): string {
+  getPhone(): string | undefined {
     return this.phone;
   }
 
