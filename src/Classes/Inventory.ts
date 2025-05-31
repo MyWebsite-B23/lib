@@ -15,9 +15,9 @@ export type InventoryAttributes = BaseAttributes & {
 export type InventoryData = BaseData & InventoryAttributes;
 
 export class InventoryModel extends BaseModel {
-  private productKey: string;
-  private variantId: string;
-  private stocks: StockData[];
+  protected productKey: string;
+  protected variantId: string;
+  protected stocks: StockData[];
 
   constructor(data: InventoryAttributes) {
     super(data);
