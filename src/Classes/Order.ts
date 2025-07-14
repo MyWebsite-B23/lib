@@ -82,7 +82,7 @@ export default class OrderModel extends BaseShoppingContainerModel {
     
     const newLineItemStateMap: OrderLineItemStateMap = {};
     data.lineItems.forEach(item => {
-      const currentStateMap = this.lineItemStateMap?.[item.id] || {};
+      const currentStateMap = data.lineItemStateMap?.[item.id];;
       
       newLineItemStateMap[item.id] = {
         state: currentStateMap?.state || OrderLineItemState.INITIAL,
