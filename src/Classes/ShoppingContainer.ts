@@ -100,7 +100,7 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
 
     this.total = {
       shipping: data.total?.shipping || 0,
-      effectiveShipping: data.total?.effectiveShipping || data.total?.shipping || 0,
+      effectiveShipping: data.total?.effectiveShipping ?? data.total?.shipping ?? 0,
       subtotal: 0, // Will be calculated
       mrpTotal: 0, // Will be calculated
       couponTotal: data.total?.couponTotal || {},

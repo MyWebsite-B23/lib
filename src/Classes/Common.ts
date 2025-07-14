@@ -81,10 +81,27 @@ export type RegionalPrice = {
 export type RegionalPriceList = RegionalPrice[];
 
 export interface ShippingDetails {
-  shippingMethodId?: string;
-  shippingMethodName?: string | LocalizedString;
-  carrier?: string;
-  estimatedCost?: number;
-  estimatedDeliveryBy?: ISODateTime | null;
-  deliveryInstructions?: string | null;
+  courierName: string;
+  courierId?: string;
+  serviceType?: string;
+  rating?: number;
+  estimatedDeliveryDays?: number;
+  cost: number;
+  currency?: string;
+  isFallback: boolean;
+  trackingUrl?: string;
+  deliveryType?: string;
+  insuranceAmount?: number;
+  weight?: number;
+  dimensions?: {
+    length: number;
+    width: number;
+    height: number;
+    unit?: string;
+  };
+  pickupDate?: string;
+  deliveryDate?: string;
+  status?: string;
+  rawApiData?: any;
+  [key: string]: any;
 }

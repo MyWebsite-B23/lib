@@ -80,16 +80,17 @@ export default class OrderModel extends BaseShoppingContainerModel {
     this.holdReason = data.holdReason || '';
     this.state = data.state;
     
-    this.lineItemStateMap = {};
+    const newLineItemStateMap: OrderLineItemStateMap = {};
     data.lineItems.forEach(item => {
-      const currentStateMap = this.lineItemStateMap[item.id];
+      const currentStateMap = this.lineItemStateMap?.[item.id] || {};
       
-      this.lineItemStateMap[item.id] = {
+      newLineItemStateMap[item.id] = {
         state: currentStateMap?.state || OrderLineItemState.INITIAL,
         reason: currentStateMap?.reason || '',
         transitionAt: currentStateMap?.transitionAt || this.createdAt,
       };
     });
+    this.lineItemStateMap = newLineItemStateMap;
   }
 
   /**

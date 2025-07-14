@@ -1,5 +1,6 @@
 import { BasePrice, Color, LocaleCode, LocalizedString, PriceTier } from "./Common";
 import ImageInfoModel, { ImageInfoData } from "./ImageInfo";
+import { LocalizedProductSpecification, ProductSpecification } from "./Product";
 
 export type SubItem = {
   size: string;
@@ -14,6 +15,7 @@ export type LineItemAttributes = {
     attributes: {
         color: Color;
     };
+    specifications: LocalizedProductSpecification;
     primaryImage: ImageInfoData;
     subItems: SubItem[];
     basePrice: BasePrice;
@@ -39,6 +41,7 @@ export default class LineItemModel {
   protected attributes: {
       color: Color;
   };
+  protected specifications: LocalizedProductSpecification;
   protected primaryImage: ImageInfoModel;
   protected subItems: SubItem[];
   protected totalQuantity: number;
@@ -60,6 +63,7 @@ export default class LineItemModel {
 
       this.name = { ...data.name };
       this.attributes = { ...data.attributes };
+      this.specifications = {...data.specifications };
       this.primaryImage = new ImageInfoModel(data.primaryImage);
       this.subItems = data.subItems.map(item => ({ ...item }));
       this.basePrice = { ...data.basePrice };
@@ -113,6 +117,25 @@ export default class LineItemModel {
   /** Gets the variant attributes. */
   getAttributes(): { color: Color } {
       return { ...this.attributes };
+  }
+
+  /**
+    * Gets the full localized product specifications object.
+    * @returns Product Specifications
+    */
+  getSpecifications(): LocalizedProductSpecification
+  /**
+    * Gets the product specifications for a specific locale, falling back to English ('en').
+    * @param locale - The desired locale code.
+    * @returns The ProductSpecification object for the specified locale, or undefined if not found.
+    */
+  getSpecifications(locale: LocaleCode): ProductSpecification | undefined
+  getSpecifications(locale?: LocaleCode): LocalizedProductSpecification | ProductSpecification | undefined {
+    if(locale){
+      return this.specifications[locale] ?? this.specifications.en;
+    } else {
+      return JSON.parse(JSON.stringify(this.specifications));
+    }
   }
 
   /** Gets the image information model for this line item. */
@@ -189,6 +212,7 @@ export default class LineItemModel {
           variantId: this.getVariantId(),
           name: this.getName(),
           attributes: this.getAttributes(),
+          specifications: this.getSpecifications(),
           primaryImage: this.getImage().getDetails(),
           subItems: this.getSubItems(),
           totalQuantity: this.getTotalQuantity(),
