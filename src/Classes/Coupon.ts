@@ -1,5 +1,6 @@
 import BaseModel, { BaseAttributes } from "./Base";
 import { CountryCode, ISODateTime, LocaleCode, LocalizedString, RegionalPrice, RegionalPriceList } from "./Common";
+import { LocaleLanguageMap } from "./Enum";
 
 export enum CouponType {
   COUPON = "coupon",
@@ -98,7 +99,7 @@ export default class CouponModel extends BaseModel {
   getName(locale: LocaleCode): string
   getName(locale?: LocaleCode): LocalizedString | string {
     if (locale) {
-      return this.name[locale] ?? this.name.en;
+      return this.name[locale] ?? this.name[LocaleLanguageMap[locale]] ?? this.name.en;
     } else {
       return { ...this.name };
     }
@@ -117,7 +118,7 @@ export default class CouponModel extends BaseModel {
   getDescription(locale: LocaleCode): string
   getDescription(locale?: LocaleCode): LocalizedString | string {
     if (locale) {
-      return this.description[locale] ?? this.description.en;
+      return this.description[locale] ?? this.description[LocaleLanguageMap[locale]] ?? this.description.en;
     } else {
       return { ...this.description };
     }

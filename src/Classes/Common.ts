@@ -1,4 +1,4 @@
-import { OperationalCountry, OperationalCountryCurrency, OperationalLocale } from "./Enum";
+import { OperationalCountry, OperationalCountryCurrency, OperationalLanguage, OperationalLocale } from "./Enum";
 /**
  * Represents a ISO 3166-1 alpha-2 country code (e.g., 'US', 'IN').
  */
@@ -20,7 +20,7 @@ export type CurrencyCode = keyof typeof  OperationalCountryCurrency;
 export type LocalizedString = {
   en: string;
 } & {
-  [locale in LocaleCode]?: string;
+  [locale in (LocaleCode | LanguageCode)]?: string;
 };
 
 
@@ -29,6 +29,8 @@ export type LocalizedString = {
  * Used to identify languages and regional variations.
  */
 export type LocaleCode = keyof typeof OperationalLocale;
+
+export type LanguageCode = keyof typeof OperationalLanguage;
 
 
 /**

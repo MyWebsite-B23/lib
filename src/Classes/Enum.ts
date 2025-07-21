@@ -11,6 +11,17 @@ export enum OperationalCountryCurrency {
 
 export enum OperationalLocale {
   /** India */ 'en-IN' = 'en-IN',
+  /** India ( Kannada) */ 'ka-IN' = 'ka-IN'
+}
+
+export enum OperationalLanguage {
+  en = 'en',
+  ka = 'ka'
+}
+
+export const LocaleLanguageMap: Record<OperationalLocale, OperationalLanguage> = {
+  [OperationalLocale["en-IN"]]: OperationalLanguage.en,
+  [OperationalLocale["ka-IN"]]: OperationalLanguage.ka,
 }
 
 /**

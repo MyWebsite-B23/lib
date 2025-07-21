@@ -1,6 +1,6 @@
 import BaseModel, { BaseAttributes } from "./Base";
-import { BasePriceList, PriceTierList, Color, LocalizedString, CountryCode, LocaleCode, BasePrice } from './Common';
-import { GenderCategory } from "./Enum";
+import { BasePriceList, PriceTierList, Color, LocalizedString, CountryCode, LocaleCode, BasePrice, LanguageCode } from './Common';
+import { GenderCategory, LocaleLanguageMap } from "./Enum";
 import ImageInfoModel, { ImageInfoData } from "./ImageInfo";
 
 export type ProductVariantIdentifier =  {
@@ -49,7 +49,7 @@ export type ProductSpecification = { [key: string]: string | string[] };
 export type LocalizedProductSpecification = {
   en: ProductSpecification
 } & {
-  [locale in LocaleCode]?: ProductSpecification
+  [locale in (LocaleCode | LanguageCode)]?: ProductSpecification
 }
 
 export default class ProductModel extends BaseModel {
@@ -155,7 +155,7 @@ export default class ProductModel extends BaseModel {
   getName(locale: LocaleCode): string
   getName(locale?: LocaleCode): LocalizedString | string {
     if(locale) {
-      return this.name[locale] ?? this.name.en;
+      return this.name[locale] ?? this.name[LocaleLanguageMap[locale]] ?? this.name.en;
     } else {
       return { ...this.name };
     }
@@ -174,7 +174,7 @@ export default class ProductModel extends BaseModel {
   getDescription(locale: LocaleCode): string
   getDescription(locale?: LocaleCode): LocalizedString | string  {
     if(locale){
-      return this.description[locale] ?? this.description.en;
+      return this.description[locale] ?? this.description[LocaleLanguageMap[locale]] ?? this.description.en;
     } else {
       return { ...this.description };
     }
@@ -193,7 +193,7 @@ export default class ProductModel extends BaseModel {
   getSlug(locale: LocaleCode): string
   getSlug(locale?: LocaleCode): LocalizedString | string {
     if (locale) {
-      return this.slug[locale] ?? this.slug.en;
+      return this.slug[locale] ?? this.slug[LocaleLanguageMap[locale]] ?? this.slug.en;
     } else {
       return { ...this.slug };
     }
@@ -306,7 +306,7 @@ export default class ProductModel extends BaseModel {
   getSpecifications(locale: LocaleCode): ProductSpecification | undefined
   getSpecifications(locale?: LocaleCode): LocalizedProductSpecification | ProductSpecification | undefined {
       if(locale){
-        return this.specifications[locale] ?? this.specifications.en;
+        return this.specifications[locale] ?? this.specifications[LocaleLanguageMap[locale]] ?? this.specifications.en;
       } else {
         return JSON.parse(JSON.stringify(this.specifications));
       }

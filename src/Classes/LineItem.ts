@@ -1,4 +1,5 @@
 import { BasePrice, Color, LocaleCode, LocalizedString, PriceTier } from "./Common";
+import { LocaleLanguageMap } from "./Enum";
 import ImageInfoModel, { ImageInfoData } from "./ImageInfo";
 import { LocalizedProductSpecification, ProductSpecification } from "./Product";
 
@@ -107,7 +108,7 @@ export default class LineItemModel {
   getName(locale: LocaleCode): string
   getName(locale?: LocaleCode): LocalizedString | string {
     if(locale) {
-      return this.name[locale] ?? this.name.en;
+      return this.name[locale] ?? this.name[LocaleLanguageMap[locale]] ?? this.name.en;
     } else {
       return { ...this.name };
     }
@@ -132,7 +133,7 @@ export default class LineItemModel {
   getSpecifications(locale: LocaleCode): ProductSpecification | undefined
   getSpecifications(locale?: LocaleCode): LocalizedProductSpecification | ProductSpecification | undefined {
     if(locale){
-      return this.specifications[locale] ?? this.specifications.en;
+      return this.specifications[locale] ?? this.specifications[LocaleLanguageMap[locale]] ?? this.specifications.en;
     } else {
       return JSON.parse(JSON.stringify(this.specifications));
     }
