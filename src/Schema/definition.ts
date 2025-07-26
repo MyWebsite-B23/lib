@@ -1,4 +1,6 @@
-{
+import { OperationalCountry, OperationalCountryCurrency, OperationalLocale } from "../Classes/Enum";
+
+export default {
   "$id": "standards",
   "definitions": {
       "lowercaseText": {
@@ -111,21 +113,15 @@
       },
       "country": {
           "type": "string",
-          "enum": [
-              "IN"
-          ]
+          "enum": Object.values(OperationalCountry)
       },
       "currency": {
         "type": "string",
-        "enum": [
-            "INR"
-        ]
+        "enum": Object.values(OperationalCountryCurrency)
       },
       "locale": {
           "type": "string",
-          "enum": [
-              "en-IN"
-          ]
+          "enum": Object.values(OperationalLocale)
       },
       "addressType": {
           "type": "string",

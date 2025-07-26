@@ -1,4 +1,4 @@
-import SchemaDefinitions from './definition.json';
+import SchemaDefinitions from './definition';
 
 const Schema = {
   getStandardSchemaDefinition() {
