@@ -24,6 +24,11 @@ export const LocaleLanguageMap: Record<OperationalLocale, OperationalLanguage> =
   [OperationalLocale["ka-IN"]]: OperationalLanguage.ka,
 }
 
+export const LocaleCountryMap: Record<OperationalLocale, OperationalCountry> = {
+   [OperationalLocale["en-IN"]]: OperationalCountry.IN,
+  [OperationalLocale["ka-IN"]]: OperationalCountry.IN,
+}
+
 /**
  * Defines the supported ISO 4217 currency codes as an enumeration.
  */
