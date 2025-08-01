@@ -7,6 +7,7 @@ export enum CustomerStatus {
   EMAIL_OTP = "EMAIL_OTP",
   EMAIL_PASSWORD = "EMAIL_PASSWORD",
   PHONE_OTP = "PHONE_OTP",
+  GOOGLE_AUTH = "GOOGLE_AUTH"
 }
 
 export type CustomerAttributes = BaseAttributes & {
