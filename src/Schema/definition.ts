@@ -1,4 +1,4 @@
-import { OperationalCountry, OperationalCountryCurrency, OperationalLocale } from "../Classes/Enum";
+import { OperationalCountry, OperationalCountryCurrency, OperationalLanguage, OperationalLocale } from "../Classes/Enum";
 
 export default {
   "$id": "standards",
@@ -122,6 +122,14 @@ export default {
       "locale": {
           "type": "string",
           "enum": Object.values(OperationalLocale)
+      },
+      "language": {
+          "type": "string",
+          "enum": Object.values(OperationalLanguage)
+      },
+      "localeOrLanguage": {
+          "type": "string",
+           "enum": [...Object.values(OperationalLocale), ...Object.values(OperationalLanguage)]
       },
       "addressType": {
           "type": "string",
