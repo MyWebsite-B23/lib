@@ -4,25 +4,48 @@ import { ISODateTime } from "./Common";
 import { PaymentStatus } from "./Payment";
 import BaseShoppingContainerModel, { BaseShoppingContainerAttributes, BaseShoppingContainerData, ShoppingContainerTotal } from "./ShoppingContainer";
 
+/**
+ * PLACED: Order created, awaiting payment.
+ * PENDING_PAYMENT: Waiting for payment confirmation.
+ * PROCESSING: Payment received, order is being fulfilled. Stays here until all line items reach a final state.
+ * CANCELLED: All line items are cancelled, or order is cancelled before fulfillment.
+ * COMPLETED: All line items are delivered, returned, or refunded.
+ */
 export enum OrderState {
   PLACED = "PLACED",
   PENDING_PAYMENT = "PENDING_PAYMENT",
   PROCESSING = "PROCESSING",
-  SHIPPED = "SHIPPED",
-  DELIVERED = "DELIVERED",
   CANCELLED = "CANCELLED",
-  RETURNED = "RETURNED",
-  REFUNDED = "REFUNDED",
-  COMPLETED = "COMPLETED",
+  COMPLETED = "COMPLETED"
 }
 
+/**
+ * OrderLineItemState
+ * 
+ * INITIAL: Item added to order, not yet processed.
+ * PROCESSING: Item is being prepared for shipment.
+ * SHIPPED: Item dispatched to customer.
+ * DELIVERED: Item delivered to customer.
+ * CANCELLED: Item cancelled before shipment or delivery.
+ * RETURN_REQUESTED: Customer requests to return item.
+ * RETURNED: Item received back from customer.
+ * REFUND_REQUESTED: Refund initiated for item.
+ * REFUNDED: Refund processed for item.
+ * ON_HOLD: Item is paused due to payment, inventory, or other issues.
+ */
 export enum OrderLineItemState {
   INITIAL = "INITIAL",
   PROCESSING = "PROCESSING",
   SHIPPED = "SHIPPED",
   DELIVERED = "DELIVERED",
   CANCELLED = "CANCELLED",
+  RETURN_REQUESTED = "RETURN_REQUESTED",
+  RETURNED = "RETURNED",
+  REFUND_REQUESTED = "REFUND_REQUESTED",
+  REFUNDED = "REFUNDED",
+  ON_HOLD = "ON_HOLD",
 }
+
 
 export type OrderLineItemStateMap = Record<string, {
   state:OrderLineItemState;
