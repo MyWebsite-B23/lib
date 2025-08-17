@@ -101,13 +101,11 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
     this.total = {
       shipping: data.total?.shipping || 0,
       effectiveShipping: data.total?.effectiveShipping ?? data.total?.shipping ?? 0,
-      subtotal: 0, // Will be calculated
-      mrpTotal: 0, // Will be calculated
+      subtotal: data.total?.subtotal || 0,
+      mrpTotal: data.total?.mrpTotal || 0,
       couponTotal: data.total?.couponTotal || {},
-      grandTotal: data.total?.grandTotal || 0, // Will be recalculated
+      grandTotal: data.total?.grandTotal || 0,
     };
-
-    this.recalculateBaseTotals();
   }
 
   /**
@@ -257,11 +255,12 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
    * Calculates the discount value for a given coupon based on the current container state.
    * Returns 0 if the coupon is invalid, expired, or not applicable based on cart value or target category.
    * @param coupon - The CouponModel instance to evaluate.
+   * @param checkExpiry - Whether to check the coupon's expiry status.
    * @returns The calculated discount amount (rounded according to country rules).
    */
-  public calculateApplicableCouponDiscount(coupon: CouponModel): number {
+  public calculateApplicableCouponDiscount(coupon: CouponModel, checkExpiry: boolean = true): number {
     // 1. Basic validation (active)
-    if (!coupon.isActive()) {
+    if (checkExpiry && !coupon.isActive()) {
       return 0;
     }
 
@@ -314,14 +313,15 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
   /**
    * Recalculates the `couponTotal` map based on currently applied coupons.
    * Iterates through coupons, calculates their applicable discount, and stores it.
+   * @param checkExpiry - Whether to check the expiry status of coupons.
    * @returns The total discount amount from all valid and applicable coupons (rounded).
    */
-  public recalculateCouponTotals(): number {
-    this.total.couponTotal = {}; // Reset the map
+  public recalculateCouponTotals(checkExpiry: boolean = true): number {
+    this.total.couponTotal = {};
     let totalDiscount = 0;
 
     this.coupons.forEach(coupon => {
-      const discount = this.calculateApplicableCouponDiscount(coupon);
+      const discount = this.calculateApplicableCouponDiscount(coupon, checkExpiry);
       if (discount > 0) {
         this.total.couponTotal[coupon.getCode()] = discount; // Store per-coupon discount
         totalDiscount += discount; // Accumulate total discount
@@ -329,48 +329,6 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
     });
     // Return the rounded total discount
     return PriceModel.getRoundedPrice(totalDiscount, this.country);
-  }
-
-  /**
-  * Recalculates all container totals (subtotal, mrpTotal, coupons, shipping, grandTotal).
-  * Should be called whenever line items, coupons, or base shipping cost change.
-  */
-  public updateCartTotals(): void {
-    // 1. Calculate line item totals (subtotal, mrpTotal)
-    this.total.subtotal = PriceModel.getRoundedPrice(this.lineItems.reduce((sum, item) => sum + item.getPriceTotals().subtotal, 0), this.country);
-    this.total.mrpTotal = PriceModel.getRoundedPrice(this.lineItems.reduce((sum, item) => sum + item.getPriceTotals().mrpTotal, 0), this.country);
-
-    // 2. Calculate total coupon discount and update the per-coupon discount map
-    this.recalculateCouponTotals(); // This updates this.total.couponTotal
-
-    // 3. Calculate effective shipping cost after applying shipping-specific coupons
-    const shippingCouponDiscount = this.coupons
-      .filter(c => c.getCategory() === CouponCategory.SHIPPING)
-      .reduce((sum, c) => sum + (this.total.couponTotal[c.getCode()] ?? 0), 0);
-    this.total.effectiveShipping = PriceModel.getRoundedPrice(Math.max(0, this.total.shipping - shippingCouponDiscount), this.country);
-
-    // 4. Calculate total discount from non-shipping coupons
-    const nonShippingCouponDiscount = this.coupons
-      .filter(c => c.getCategory() !== CouponCategory.SHIPPING)
-      .reduce((sum, c) => sum + (this.total.couponTotal[c.getCode()] ?? 0), 0);
-
-    // 5. Calculate final grand total: (subtotal + effective shipping) - non-shipping discounts
-    const grossTotal = this.total.subtotal + this.total.effectiveShipping;
-    this.total.grandTotal = PriceModel.getRoundedPrice(Math.max(0, grossTotal - nonShippingCouponDiscount), this.country);
-  }
-
-  /**
-  * Updates the shipping details (including estimated cost) for the container and recalculates totals.
-  * @param details - The new ShippingDetails object, or null to clear shipping details and cost.
-  */
-  public setShippingDetails(details: ShippingDetails | null): void {
-    // Store a copy of the details or null
-    this.shippingDetails = details ? { ...details } : null;
-
-    // Update the base shipping cost based on the new details
-    this.total.shipping = PriceModel.getRoundedPrice(this.shippingDetails?.estimatedCost ?? 0, this.country);
-    // Recalculate all totals as shipping cost affects effective shipping and grand total
-    this.updateCartTotals();
   }
 
 

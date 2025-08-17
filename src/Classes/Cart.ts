@@ -1,4 +1,6 @@
+import { CouponCategory } from "./Coupon";
 import LineItemModel from "./LineItem";
+import PriceModel from "./Price";
 import BaseShoppingContainerModel, { BaseShoppingContainerAttributes, BaseShoppingContainerData } from "./ShoppingContainer";
 
 export enum CartState {
@@ -61,6 +63,33 @@ export default class CartModel extends BaseShoppingContainerModel {
   public isActive(): boolean {
     const nowSeconds = Math.ceil(Date.now() / 1000);
     return this.state === CartState.ACTIVE && (this.expireAt > nowSeconds);
+  }
+
+  /**
+  * Recalculates all container totals (subtotal, mrpTotal, coupons, shipping, grandTotal).
+  * Should be called whenever line items, coupons, or base shipping cost change.
+  */
+  public updateCartTotals(): void {
+    // 1. Calculate line item totals (subtotal, mrpTotal)
+    this.recalculateBaseTotals();
+
+    // 2. Calculate total coupon discount and update the per-coupon discount map
+    this.recalculateCouponTotals(); // This updates this.total.couponTotal
+
+    // 3. Calculate effective shipping cost after applying shipping-specific coupons
+    const shippingCouponDiscount = this.coupons
+      .filter(c => c.getCategory() === CouponCategory.SHIPPING)
+      .reduce((sum, c) => sum + (this.total.couponTotal[c.getCode()] ?? 0), 0);
+    this.total.effectiveShipping = PriceModel.getRoundedPrice(Math.max(0, this.total.shipping - shippingCouponDiscount), this.country);
+
+    // 4. Calculate total discount from non-shipping coupons
+    const nonShippingCouponDiscount = this.coupons
+      .filter(c => c.getCategory() !== CouponCategory.SHIPPING)
+      .reduce((sum, c) => sum + (this.total.couponTotal[c.getCode()] ?? 0), 0);
+
+    // 5. Calculate final grand total: (subtotal + effective shipping) - non-shipping discounts
+    const grossTotal = this.total.subtotal + this.total.effectiveShipping;
+    this.total.grandTotal = PriceModel.getRoundedPrice(Math.max(0, grossTotal - nonShippingCouponDiscount), this.country);
   }
   
   public clearCartItems() {
