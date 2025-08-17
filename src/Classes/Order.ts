@@ -31,7 +31,7 @@ export enum OrderState {
  * CANCELLED: Item cancelled before shipment or delivery.
  * RETURN_REQUESTED: Customer requests to return item.
  * RETURNED: Item received back from customer.
- * REFUND_REQUESTED: Refund initiated for item.
+ * REFUND_INITIATED: Refund initiated for item.
  * REFUNDED: Refund processed for item.
  * ON_HOLD: Item is paused due to payment, inventory, or other issues.
  */
@@ -43,7 +43,7 @@ export enum OrderLineItemState {
   CANCELLED = "CANCELLED",
   RETURN_REQUESTED = "RETURN_REQUESTED",
   RETURNED = "RETURNED",
-  REFUND_REQUESTED = "REFUND_REQUESTED",
+  REFUND_INITIATED = "REFUND_INITIATED",
   REFUNDED = "REFUNDED",
   ON_HOLD = "ON_HOLD",
 }
@@ -126,11 +126,15 @@ export default class OrderModel extends BaseShoppingContainerModel {
      */
   protected recalculateOrderBaseTotals(): void {
     this.total.subtotal = PriceModel.getRoundedPrice(this.lineItems
-      .filter((item) => this.lineItemStateMap[item.getId()]?.state !== OrderLineItemState.CANCELLED)
+      .filter((item) => 
+        ![OrderLineItemState.CANCELLED, OrderLineItemState.REFUND_INITIATED, OrderLineItemState.REFUNDED].includes(this.lineItemStateMap[item.getId()]?.state)
+      )
       .reduce((sum, item) => sum + item.getPriceTotals().subtotal, 0), this.country);
 
     this.total.mrpTotal = PriceModel.getRoundedPrice(this.lineItems
-      .filter((item) => this.lineItemStateMap[item.getId()]?.state !== OrderLineItemState.CANCELLED)
+      .filter((item) => 
+        ![OrderLineItemState.CANCELLED, OrderLineItemState.REFUND_INITIATED, OrderLineItemState.REFUNDED].includes(this.lineItemStateMap[item.getId()]?.state)
+      )
       .reduce((sum, item) => sum + item.getPriceTotals().mrpTotal, 0), this.country);
   }
 
