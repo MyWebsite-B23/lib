@@ -125,17 +125,13 @@ export default class OrderModel extends BaseShoppingContainerModel {
      * Uses PriceModel for rounding based on the country.
      */
   protected recalculateOrderBaseTotals(): void {
-    this.total.subtotal = PriceModel.getRoundedPrice(this.lineItems
-      .filter((item) => 
-        ![OrderLineItemState.CANCELLED, OrderLineItemState.REFUND_INITIATED, OrderLineItemState.REFUNDED].includes(this.lineItemStateMap[item.getId()]?.state)
-      )
+    const filteredLineItems = this.lineItems.filter(item =>
+      this.lineItemStateMap[item.getId()]?.state !== OrderLineItemState.CANCELLED
+    );
+    this.total.subtotal = PriceModel.getRoundedPrice(filteredLineItems
       .reduce((sum, item) => sum + item.getPriceTotals().subtotal, 0), this.country);
 
-    this.total.mrpTotal = PriceModel.getRoundedPrice(this.lineItems
-      .filter((item) => 
-        ![OrderLineItemState.CANCELLED, OrderLineItemState.REFUND_INITIATED, OrderLineItemState.REFUNDED].includes(this.lineItemStateMap[item.getId()]?.state)
-      )
-      .reduce((sum, item) => sum + item.getPriceTotals().mrpTotal, 0), this.country);
+    this.total.mrpTotal = PriceModel.getRoundedPrice(filteredLineItems.reduce((sum, item) => sum + item.getPriceTotals().mrpTotal, 0), this.country);
   }
 
   public updateOrderTotals(): void {
