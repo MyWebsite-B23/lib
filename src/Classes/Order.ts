@@ -116,17 +116,17 @@ export default class OrderModel extends BaseShoppingContainerModel {
       };
     });
     this.lineItemStateMap = newLineItemStateMap;
-
-    this.recalculateOrderBaseTotals();
   }
 
   /**
      * Recalculates the subtotal and mrpTotal based on the current line items.
      * Uses PriceModel for rounding based on the country.
      */
-  protected recalculateOrderBaseTotals(): void {
+  protected recalculateOrderBaseTotals(filterRefunded: boolean = false): void {
     const filteredLineItems = this.lineItems.filter(item =>
-      this.lineItemStateMap[item.getId()]?.state !== OrderLineItemState.CANCELLED
+      !(this.lineItemStateMap[item.getId()]?.state === OrderLineItemState.CANCELLED 
+      ||
+      filterRefunded && [OrderLineItemState.RETURN_REQUESTED, OrderLineItemState.RETURNED, OrderLineItemState.REFUND_INITIATED, OrderLineItemState.REFUNDED].includes(this.lineItemStateMap[item.getId()]?.state))
     );
     this.total.subtotal = PriceModel.getRoundedPrice(filteredLineItems
       .reduce((sum, item) => sum + item.getPriceTotals().subtotal, 0), this.country);
@@ -135,24 +135,27 @@ export default class OrderModel extends BaseShoppingContainerModel {
   }
 
   public updateOrderTotals(): void {
-    // 1. Calculate line item totals (subtotal, mrpTotal)
-    this.recalculateOrderBaseTotals();
+    // 1. Calculate filtered line item totals (subtotal, mrpTotal)
+    this.recalculateOrderBaseTotals(true);
 
     // 2. Calculate total coupon discount and update the per-coupon discount map
     this.recalculateCouponTotals(false);
 
-    // 3. Calculate effective shipping cost after applying shipping-specific coupons
+    // 3. Calculate line item totals (subtotal, mrpTotal)
+    this.recalculateOrderBaseTotals();
+
+    // 4. Calculate effective shipping cost after applying shipping-specific coupons
     const shippingCouponDiscount = this.coupons
       .filter(c => c.getCategory() === CouponCategory.SHIPPING)
       .reduce((sum, c) => sum + (this.total.couponTotal[c.getCode()] ?? 0), 0);
     this.total.effectiveShipping = PriceModel.getRoundedPrice(Math.max(0, this.total.shipping - shippingCouponDiscount), this.country);
 
-    // 4. Calculate total discount from non-shipping coupons
+    // 5. Calculate total discount from non-shipping coupons
     const nonShippingCouponDiscount = this.coupons
       .filter(c => c.getCategory() !== CouponCategory.SHIPPING)
       .reduce((sum, c) => sum + (this.total.couponTotal[c.getCode()] ?? 0), 0);
 
-    // 5. Calculate final grand total: (subtotal + effective shipping) - non-shipping discounts
+    // 6. Calculate final grand total: (subtotal + effective shipping) - non-shipping discounts
     const grossTotal = this.total.subtotal + this.total.effectiveShipping;
     this.total.grandTotal = PriceModel.getRoundedPrice(Math.max(0, grossTotal - nonShippingCouponDiscount), this.country);
   }
