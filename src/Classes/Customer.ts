@@ -16,6 +16,7 @@ export type CustomerAttributes = BaseAttributes & {
   phone?: string;
   firstName: string;
   lastName: string;
+  company?: string;
   isEmailVerified?: boolean;
   customerStatus?: Set<CustomerStatus>;
 };
@@ -34,6 +35,7 @@ export default class CustomerModel extends BaseModel {
   protected phone?: string;
   protected firstName: string;
   protected lastName: string;
+  protected company: string;
   protected isEmailVerified: boolean;
   protected customerStatus: Set<CustomerStatus>;
 
@@ -50,6 +52,7 @@ export default class CustomerModel extends BaseModel {
     this.phone = data.phone;
     this.firstName = data.firstName;
     this.lastName = data.lastName;
+    this.company = data.company ?? '';
     this.isEmailVerified = data.isEmailVerified ?? false;
     this.customerStatus = new Set<CustomerStatus>(
       [...(data.customerStatus ? Array.from<CustomerStatus>(data.customerStatus) : []), CustomerStatus.CREATED]
@@ -72,6 +75,7 @@ export default class CustomerModel extends BaseModel {
       phone: this.getPhone(),
       firstName: this.getFirstName(),
       lastName: this.getLastName(),
+      company: this.getCompany(),
       isEmailVerified: this.getIsEmailVerified(),
       customerStatus: this.getCustomerStatus()
     };
@@ -119,6 +123,13 @@ export default class CustomerModel extends BaseModel {
     return this.lastName;
   }
 
+  /**
+   * Gets the company name associated with the customer.
+   * @returns The company name.
+   */
+  getCompany(): string {
+    return this.company;
+  }
 
   /**
    * Checks if the customer's email address has been verified.

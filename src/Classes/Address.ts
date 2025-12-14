@@ -11,6 +11,7 @@ export type AddressAttributes = BaseAttributes & {
   id: string;
   firstName: string;
   lastName?: string;
+  company?: string;
   phone: string;
   email: string;
   addressLine1: string;
@@ -33,6 +34,7 @@ export default class AddressModel extends BaseModel {
   protected id: string;
   protected firstName: string;
   protected lastName: string;
+  protected company: string;
   protected phone: string;
   protected email: string;
   protected addressLine1: string;
@@ -54,6 +56,7 @@ export default class AddressModel extends BaseModel {
     this.id = data.id;
     this.firstName = data.firstName;
     this.lastName = data.lastName || '';
+    this.company = data.company || '';
     this.phone = data.phone;
     this.email = data.email;
     this.addressLine1 = data.addressLine1;
@@ -77,6 +80,7 @@ export default class AddressModel extends BaseModel {
       id: this.getId(),
       firstName: this.getFirstName(),
       lastName: this.getLastName(),
+      company: this.getCompany(),
       phone: this.getPhone(),
       email: this.getEmail(),
       addressLine1: this.getAddressLine1(),
@@ -112,6 +116,14 @@ export default class AddressModel extends BaseModel {
    */
   getLastName(): string {
     return this.lastName;
+  }
+
+  /**
+   * Gets the company name associated with the address.
+   * @returns The company name.
+   */
+  getCompany(): string {
+    return this.company;
   }
 
   /**

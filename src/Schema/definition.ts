@@ -95,6 +95,7 @@ export default {
       },
       "firstName": { "$ref": "#/definitions/requiredText30" },
       "lastName": { "$ref": "#/definitions/text30" },
+      "company": { "$ref": "#/definitions/text50" },
       "phone": { 
           "type" : "string",
           "pattern": "^[0-9]{10}$"
@@ -140,6 +141,7 @@ export default {
           "properties": {
               "firstName": {"$ref": "standards#/definitions/firstName"},
               "lastName": { "$ref": "standards#/definitions/lastName" },
+              "company": { "$ref": "standards#/definitions/company" },
               "phone": { "$ref": "standards#/definitions/phone" },
               "email": { "$ref": "standards#/definitions/email" },
               "addressLine1": { "$ref": "standards#/definitions/addressLine1" },
