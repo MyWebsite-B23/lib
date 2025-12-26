@@ -1,5 +1,5 @@
 import BaseModel, { BaseAttributes } from "./Base";
-import { CountryCode, ISODateTime, LocaleCode, LocalizedString, RegionalPrice, RegionalPriceList } from "./Common";
+import { CountryCode, ISODateTimeUTC, LocaleCode, LocalizedString, RegionalPrice, RegionalPriceList } from "./Common";
 import { LocaleLanguageMap } from "./Enum";
 
 export enum CouponType {
@@ -28,8 +28,8 @@ export type CouponAttribute = BaseAttributes & {
   description: LocalizedString;
   type: CouponType;
   customerId?: string;
-  validFrom: ISODateTime;
-  validTo: ISODateTime;
+  validFrom: ISODateTimeUTC;
+  validTo: ISODateTimeUTC;
   minCartValue: RegionalPriceList;
   maxCartDiscount: RegionalPriceList;
   discountMethod: CouponDiscountMethod;
@@ -49,8 +49,8 @@ export default class CouponModel extends BaseModel {
   protected description: LocalizedString;
   protected type: CouponType;
   protected customerId?: string;
-  protected validFrom: ISODateTime;
-  protected validTo: ISODateTime;
+  protected validFrom: ISODateTimeUTC;
+  protected validTo: ISODateTimeUTC;
   protected minCartValue: RegionalPriceList;
   protected maxCartDiscount: RegionalPriceList;
   protected discountMethod: CouponDiscountMethod;
@@ -135,12 +135,12 @@ export default class CouponModel extends BaseModel {
   }
 
   /** Gets the ISO date string from when the coupon is valid. */
-  getValidFrom(): ISODateTime {
+  getValidFrom(): ISODateTimeUTC {
     return this.validFrom;
   }
 
   /** Gets the ISO date string until when the coupon is valid. */
-  getValidTo(): ISODateTime {
+  getValidTo(): ISODateTimeUTC {
     return this.validTo;
   }
 

@@ -1,5 +1,5 @@
 import BaseModel, { BaseAttributes, BaseData } from "./Base";
-import { CurrencyCode, ISODateTime } from "./Common";
+import { CurrencyCode, ISODateTimeUTC } from "./Common";
 
 export enum PaymentStatus {
   PENDING = "PENDING",
@@ -39,7 +39,7 @@ export type PaymentAttributes = BaseAttributes & {
   amountRefunded?: number;
   cardLast4?: string;
   cardBrand?: string;
-  transactionAt: ISODateTime;
+  transactionAt: ISODateTimeUTC;
 };
 
 /**
@@ -67,7 +67,7 @@ export default class PaymentModel extends BaseModel {
   protected amountRefunded: number;
   protected cardLast4?: string;
   protected cardBrand?: string;
-  protected transactionAt: ISODateTime;
+  protected transactionAt: ISODateTimeUTC;
 
   /**
    * Creates an instance of PaymentModel.
@@ -190,7 +190,7 @@ export default class PaymentModel extends BaseModel {
    * Gets the timestamp when the transaction occurred or was recorded.
    * @returns The transaction timestamp as an ISO 8601 string.
    */
-  public getTransactionAt(): ISODateTime { return this.transactionAt; }
+  public getTransactionAt(): ISODateTimeUTC { return this.transactionAt; }
 
 
   /**

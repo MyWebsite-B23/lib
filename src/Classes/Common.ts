@@ -1,4 +1,7 @@
 import { OperationalCountry, OperationalCountryCurrency, OperationalLanguage, OperationalLocale } from "./Enum";
+
+type Prettify<T> = { [K in keyof T]: T[K] } & {};
+
 /**
  * Represents a ISO 3166-1 alpha-2 country code (e.g., 'US', 'IN').
  */
@@ -13,16 +16,24 @@ export type CurrencyCode = keyof typeof  OperationalCountryCurrency;
 
 /**
  * /**
+ * Represents a value that can be localized into multiple languages.
+ * The 'en' property is mandatory and serves as the default English translation.
+ * Additional properties can be added for other locales using their respective locale codes.
+ */
+export type LocalizedValue<T> = Prettify<{
+  en: T;
+} & {
+  [locale in Exclude<LocaleCode | LanguageCode, 'en'>]?: T;
+}>;
+
+
+/**
+ * /**
  * Represents a string that can be localized into multiple languages.
  * The 'en' property is mandatory and serves as the default English translation.
  * Additional properties can be added for other locales using their respective locale codes.
  */
-export type LocalizedString = {
-  en: string;
-} & {
-  [locale in (LocaleCode | LanguageCode)]?: string;
-};
-
+export type LocalizedString = LocalizedValue<string>;
 
 /**
  * Represents a BCP 47 language tag (e.g., 'en-US', 'fr-FR').
@@ -70,9 +81,9 @@ export type Color = {
 
 /**
  * Represents a date and time string formatted according to the ISO 8601 standard.
- * Example: "2023-10-27T10:30:00Z"
+ * Example: "2023-10-27T10:30:00.000Z"
  */
-export type ISODateTime = string;
+export type ISODateTimeUTC = string;
 
 export type RegionalPrice = {
   country: CountryCode;

@@ -441,7 +441,7 @@ class AuthUtility {
     return async (req: any, res: any, next: any) => {
       try {
         const [authType, token] = req.get('Authorization')?.split(' ') || [];
-        let payload = authType === AuthType.CDN ? { id: token, type: AuthType.CDN } : this.decodeJWTPayloadWithJose(token);
+        let payload = authType === AuthType.CDN ? { id: token, type: AuthType.CDN } : (authType ? this.decodeJWTPayloadWithJose(token) : {});
 
         const authContext = AuthContext.init(payload?.id || token, payload?.type || authType, token, req.get('x-request-id'));
         Logger.logMessage('AuthContextMiddleware', `AuthContext initialized: ${authContext.getType() || 'No-Type'} - ${authContext.getId() || 'No-Id'}`);

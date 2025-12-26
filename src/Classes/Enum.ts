@@ -40,6 +40,10 @@ export const CurrencySymbolMap = {
   [OperationalCountryCurrency.INR]: '₹',
 }
 
+export const CurrencyLocaleMap = {
+  [OperationalCountryCurrency.INR]: OperationalLocale["en-IN"],
+}
+
 /**
  * Defines standard gender categories for product targeting.
  */
@@ -50,4 +54,5 @@ export enum GenderCategory {
   KIDS = 'Kids',
   BOY = 'Boy',
   GIRL = 'Girl',
+  GENERAL = 'General',
 }

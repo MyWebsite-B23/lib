@@ -1,5 +1,5 @@
 import { AuthType } from "../Auth";
-import { ISODateTime } from "./Common";
+import { ISODateTimeUTC } from "./Common";
 
 export interface CustomFields {
   [key: string]: any;
@@ -15,8 +15,8 @@ export type ModifiedBy = {
 export type BaseAttributes = {
   customFields?: CustomFields;
   version?: number;
-  createdAt?: ISODateTime;
-  modifiedAt?: ISODateTime;
+  createdAt?: ISODateTimeUTC;
+  modifiedAt?: ISODateTimeUTC;
   modifiedBy?: ModifiedBy;
 };
 
@@ -29,8 +29,8 @@ export type BaseData = Required<BaseAttributes>;
 export default class BaseModel {
   protected customFields: CustomFields;
   protected version: number;
-  protected createdAt: ISODateTime;
-  protected modifiedAt: ISODateTime;
+  protected createdAt: ISODateTimeUTC;
+  protected modifiedAt: ISODateTimeUTC;
   protected modifiedBy: ModifiedBy;
 
   /**
