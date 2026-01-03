@@ -1,6 +1,6 @@
 {
   "name": "b23-lib",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "description": "This repo hold common classes, type and util functiona",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

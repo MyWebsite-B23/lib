@@ -19,6 +19,7 @@ export type SelectionAttributes = {
 };
 
 export type VariantData = {
+  sku: string;
   selectionAttributes: SelectionAttributes;
   images: {
     primary: ImageInfoData;
@@ -27,6 +28,7 @@ export type VariantData = {
 };
 
 export type VariantModel = {
+  sku: string;
   selectionAttributes: SelectionAttributes;
   images: {
     primary: ImageInfoModel;
@@ -40,7 +42,6 @@ export type ProductSpecification = { [key: string]: string | string[] };
 export type ProductAttributes = BaseAttributes & {
   id: string;
   key: string;
-  sku: string;
 
   name: LocalizedString;
   description: LocalizedString;
@@ -68,7 +69,6 @@ export type ProductData = Required<ProductAttributes>
 export default class ProductModel extends BaseModel {
   protected id: string;
   protected key: string;
-  protected sku: string;
 
   protected name: LocalizedString;
   protected description: LocalizedString;
@@ -92,6 +92,7 @@ export default class ProductModel extends BaseModel {
   protected searchTags: LocalizedValue<string[]>;
 
   static productKeyRegex = /^(?!\s)(?!.*\s$)[A-Z0-9-]{4,16}$/;
+  static productSKURegex = /^(?!\s)(?!.*\s$)[A-Z0-9-]{4,16}$/;
 
   /**
    * Generates a unique key for checking uniqueness for a given selection attributes.
@@ -146,7 +147,6 @@ export default class ProductModel extends BaseModel {
 
     this.id = data.id;
     this.key = data.key;
-    this.sku = data.sku;
 
     this.name = { ...data.name };
     this.description = { ...data.description };
@@ -166,6 +166,7 @@ export default class ProductModel extends BaseModel {
     this.categories = Utils.deepClone(data.categories);
 
     this.variants = (data.variants || []).map(variant => ({
+      sku: variant.sku,
       selectionAttributes: variant.selectionAttributes,
       images: {
         primary: new ImageInfoModel(variant.images.primary),
@@ -191,14 +192,6 @@ export default class ProductModel extends BaseModel {
    */
   getKey(): string {
     return this.key;
-  }
-
-  /**
-   * Gets the SKU for the product.
-   * @returns SKU string.
-   */
-  getSku(): string {
-    return this.sku;
   }
 
   /**
@@ -399,7 +392,6 @@ export default class ProductModel extends BaseModel {
     return {
       id: this.getId(),
       key: this.getKey(),
-      sku: this.getSku(),
       name: this.getName(),
       description: this.getDescription(),
       slug: this.getSlug(),
@@ -412,6 +404,7 @@ export default class ProductModel extends BaseModel {
       }, {} as { [country in CountryCode]: TieredPriceData }),
       attributes: this.getAttributes(),
       variants: this.variants.map(v => ({
+        sku: v.sku,
         selectionAttributes: Utils.deepClone(v.selectionAttributes),
         images: {
           primary: v.images.primary.getDetails(),

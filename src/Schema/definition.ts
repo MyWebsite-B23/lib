@@ -1,4 +1,4 @@
-import { OperationalCountry, OperationalCountryCurrency, OperationalLanguage, OperationalLocale } from "../Classes/Enum";
+import { GenderCategory, OperationalCountry, OperationalCountryCurrency, OperationalLanguage, OperationalLocale, TaxCategory } from "../Classes/Enum";
 import ProductModel from "../Classes/Product";
 
 export default {
@@ -89,6 +89,40 @@ export default {
       "productKey": {
         "type": "string",
         "pattern": ProductModel.productKeyRegex.source
+      },
+      "productSku": {
+        "type": "string",
+        "pattern": ProductModel.productSKURegex.source
+      },
+      "taxCategory": {
+        "type": "string",
+        "enum": Object.values(TaxCategory)
+      },
+      "genderCategory": {
+        "type": "string",
+        "enum": Object.values(GenderCategory)
+      },
+      "price": {
+        "type": "object",
+        "properties": {
+          "amount": { "type": "number", "minimum": 0 },
+          "currency": { "$ref": "#/definitions/currency" }
+        },
+        "required": ["amount", "currency"]
+      },
+      "color": {
+          "type": "object",
+          "properties": {
+              "name": {
+                  "type": "string"
+              },
+              "hexCode": {
+                  "type": "string"
+              }
+          },
+          "required": [
+              "name"
+          ]
       },
       "firstName": { "$ref": "#/definitions/requiredText30" },
       "lastName": { "$ref": "#/definitions/text30" },
