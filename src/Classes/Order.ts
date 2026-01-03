@@ -1,9 +1,7 @@
 import AddressModel, { AddressData } from "./Address";
-import { LineItemNotFoundError } from "./Cart";
-import { ISODateTime } from "./Common";
-import { CouponCategory } from "./Coupon";
+import { LineItemNotFoundError } from "./Error";
+import { LineItemState } from "./Enum";
 import { PaymentStatus } from "./Payment";
-import PriceModel from "./Price";
 import BaseShoppingContainerModel, { BaseShoppingContainerAttributes, BaseShoppingContainerData, ShoppingContainerTotal } from "./ShoppingContainer";
 
 /**
@@ -22,40 +20,6 @@ export enum OrderState {
 }
 
 /**
- * OrderLineItemState
- * 
- * INITIAL: Item added to order, not yet processed.
- * PROCESSING: Item is being prepared for shipment.
- * SHIPPED: Item dispatched to customer.
- * DELIVERED: Item delivered to customer.
- * CANCELLED: Item cancelled before shipment or delivery.
- * RETURN_REQUESTED: Customer requests to return item.
- * RETURNED: Item received back from customer.
- * REFUND_INITIATED: Refund initiated for item.
- * REFUNDED: Refund processed for item.
- * ON_HOLD: Item is paused due to payment, inventory, or other issues.
- */
-export enum OrderLineItemState {
-  INITIAL = "INITIAL",
-  PROCESSING = "PROCESSING",
-  SHIPPED = "SHIPPED",
-  DELIVERED = "DELIVERED",
-  CANCELLED = "CANCELLED",
-  RETURN_REQUESTED = "RETURN_REQUESTED",
-  RETURNED = "RETURNED",
-  REFUND_INITIATED = "REFUND_INITIATED",
-  REFUNDED = "REFUNDED",
-  ON_HOLD = "ON_HOLD",
-}
-
-
-export type OrderLineItemStateMap = Record<string, {
-  state:OrderLineItemState;
-  reason?: string;
-  transitionAt: ISODateTime;
-}>;
-
-/**
  * Input attributes for creating an OrderModel.
  * Extends CartAttributes but requires/adds order-specific fields.
  */
@@ -71,7 +35,6 @@ export type OrderAttributes = Omit<BaseShoppingContainerAttributes, 'anonymousId
   paymentStatus: PaymentStatus;
   holdReason?: string;
   state: OrderState;
-  lineItemStateMap?: OrderLineItemStateMap;
 };
 
 /**
@@ -79,7 +42,6 @@ export type OrderAttributes = Omit<BaseShoppingContainerAttributes, 'anonymousId
  */
 export type OrderData = BaseShoppingContainerData & OrderAttributes & {
   holdReason: string;
-  lineItemStateMap: OrderLineItemStateMap;
 };
 
 
@@ -89,7 +51,6 @@ export default class OrderModel extends BaseShoppingContainerModel {
   protected paymentStatus: PaymentStatus;
   protected holdReason: string;
   protected state: OrderState;
-  protected lineItemStateMap: OrderLineItemStateMap;
 
   /**
    * Creates an instance of OrderModel.
@@ -104,60 +65,6 @@ export default class OrderModel extends BaseShoppingContainerModel {
     this.paymentStatus = data.paymentStatus;
     this.holdReason = data.holdReason || '';
     this.state = data.state;
-    
-    const newLineItemStateMap: OrderLineItemStateMap = {};
-    data.lineItems.forEach(item => {
-      const currentStateMap = data.lineItemStateMap?.[item.id];;
-      
-      newLineItemStateMap[item.id] = {
-        state: currentStateMap?.state || OrderLineItemState.INITIAL,
-        reason: currentStateMap?.reason || '',
-        transitionAt: currentStateMap?.transitionAt || this.createdAt,
-      };
-    });
-    this.lineItemStateMap = newLineItemStateMap;
-  }
-
-  /**
-     * Recalculates the subtotal and mrpTotal based on the current line items.
-     * Uses PriceModel for rounding based on the country.
-     */
-  protected recalculateOrderBaseTotals(filterRefunded: boolean = false): void {
-    const filteredLineItems = this.lineItems.filter(item =>
-      !(this.lineItemStateMap[item.getId()]?.state === OrderLineItemState.CANCELLED 
-      ||
-      filterRefunded && [OrderLineItemState.RETURN_REQUESTED, OrderLineItemState.RETURNED, OrderLineItemState.REFUND_INITIATED, OrderLineItemState.REFUNDED].includes(this.lineItemStateMap[item.getId()]?.state))
-    );
-    this.total.subtotal = PriceModel.getRoundedPrice(filteredLineItems
-      .reduce((sum, item) => sum + item.getPriceTotals().subtotal, 0), this.country);
-
-    this.total.mrpTotal = PriceModel.getRoundedPrice(filteredLineItems.reduce((sum, item) => sum + item.getPriceTotals().mrpTotal, 0), this.country);
-  }
-
-  public updateOrderTotals(): void {
-    // 1. Calculate filtered line item totals (subtotal, mrpTotal)
-    this.recalculateOrderBaseTotals(true);
-
-    // 2. Calculate total coupon discount and update the per-coupon discount map
-    this.recalculateCouponTotals(false);
-
-    // 3. Calculate line item totals (subtotal, mrpTotal)
-    this.recalculateOrderBaseTotals();
-
-    // 4. Calculate effective shipping cost after applying shipping-specific coupons
-    const shippingCouponDiscount = this.coupons
-      .filter(c => c.getCategory() === CouponCategory.SHIPPING)
-      .reduce((sum, c) => sum + (this.total.couponTotal[c.getCode()] ?? 0), 0);
-    this.total.effectiveShipping = PriceModel.getRoundedPrice(Math.max(0, this.total.shipping - shippingCouponDiscount), this.country);
-
-    // 5. Calculate total discount from non-shipping coupons
-    const nonShippingCouponDiscount = this.coupons
-      .filter(c => c.getCategory() !== CouponCategory.SHIPPING)
-      .reduce((sum, c) => sum + (this.total.couponTotal[c.getCode()] ?? 0), 0);
-
-    // 6. Calculate final grand total: (subtotal + effective shipping) - non-shipping discounts
-    const grossTotal = this.total.subtotal + this.total.effectiveShipping;
-    this.total.grandTotal = PriceModel.getRoundedPrice(Math.max(0, grossTotal - nonShippingCouponDiscount), this.country);
   }
 
   /**
@@ -238,25 +145,17 @@ export default class OrderModel extends BaseShoppingContainerModel {
   }
 
   /**
-   * Gets the map tracking the state of each line item in the order.
-   * The keys are line item IDs, and the values contain the state, reason, and transition timestamp.
-   * @returns The OrderLineItemStateMap.
-   */
-  public getLineItemsStateMap(): OrderLineItemStateMap {
-    return { ...this.lineItemStateMap };
-  }
-
-  /**
    * Gets the current state of a specific line item within the order.
    * @param lineItemId - The ID of the line item whose state is requested.
    * @returns The OrderLineItemState enum value for the specified line item.
    * @throws {LineItemNotFoundError} If no line item with the given ID exists in the order's state map.
    */
-  public getLineItemState(lineItemId: string): OrderLineItemState {
-    if (!this.lineItemStateMap[lineItemId]){
+  public getLineItemState(lineItemId: string): LineItemState {
+    const lineItem = this.getLineItems().find(item => item.getId() === lineItemId);
+    if (!lineItem){
       throw new LineItemNotFoundError(lineItemId)
     }
-    return this.lineItemStateMap[lineItemId].state;
+    return lineItem.getState();
   }
 
   /**
@@ -275,8 +174,7 @@ export default class OrderModel extends BaseShoppingContainerModel {
       cartId: this.getCartId(),
       paymentStatus: this.getPaymentStatus(),
       holdReason: this.getHoldReason(),
-      state: this.getState(),
-      lineItemStateMap: this.getLineItemsStateMap()
+      state: this.getState()
     }
   }
 }

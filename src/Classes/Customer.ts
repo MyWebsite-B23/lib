@@ -23,7 +23,7 @@ export type CustomerAttributes = BaseAttributes & {
 
 
 type CustomerDataWithArrayStatus = Omit<CustomerAttributes, 'customerStatus'> & BaseData & { customerStatus: CustomerStatus[]; }
-export type CustomerData = Required<Omit<CustomerDataWithArrayStatus, 'phone'>> & { phone?: string};
+export type CustomerData = Required<Omit<CustomerDataWithArrayStatus, 'phone'>> & { phone?: string };
 export type CustomerDataWithOutId = Omit<CustomerData, 'id'>;
 
 /**
@@ -152,7 +152,7 @@ export default class CustomerModel extends BaseModel {
    * Checks if the customer has a specific status.
    * Note: This method currently returns void. It should likely return boolean.
    * @param customerStatus - The status to check for.
-   * @returns return boolean: true if the status exists, false otherwise.
+   * @returns True if the status exists, false otherwise.
    */
   hasCustomerStatus(customerStatus: CustomerStatus): boolean {
     return this.customerStatus.has(customerStatus);

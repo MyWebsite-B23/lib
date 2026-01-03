@@ -6,6 +6,8 @@ export enum ImageResolution {
   ORIGINAL = 'original',
 }
 
+import { InvalidImageSourceError } from "./Error";
+
 export type ImageInfoAttribute = {
   sources: { [key in ImageResolution]?: string } & { original: string };
   alt?: string;
@@ -35,7 +37,7 @@ export default class ImageInfoModel {
     this.label = data.label;
 
     if (!this.sources.original) {
-        throw ("ImageInfoModel cannot be created without an 'original' source URL.");
+      throw new InvalidImageSourceError("ImageInfoModel cannot be created without an 'original' source URL.");
     }
   }
 
@@ -52,7 +54,7 @@ export default class ImageInfoModel {
    * @param resolutionKey - The key of the desired resolution (e.g., 'thumbnail', 'medium').
    * @returns The URL string if the key doesn't exist, otherwise original image URL will be returned.
    */
-  getSource(resolutionKey: ImageResolution): string{
+  getSource(resolutionKey: ImageResolution): string {
     return this.sources[resolutionKey] || this.sources.original;
   }
 
@@ -94,10 +96,10 @@ export default class ImageInfoModel {
     this.order = order;
   }
 
-   /**
-   * Sets the display label for the image.
-   * @param label - The new label text.
-   */
+  /**
+  * Sets the display label for the image.
+  * @param label - The new label text.
+  */
   setLabel(label: string | undefined): void {
     this.label = label;
   }
@@ -108,16 +110,15 @@ export default class ImageInfoModel {
    * @param url - The URL for the resolution. Set to undefined to remove.
    */
   setSource(resolutionKey: ImageResolution, url: string | undefined): void {
-      if (url === undefined) {
-          // Prevent deleting the 'original' key if it's required
-          if (resolutionKey === 'original') {
-              throw ("Cannot remove the 'original' image source.");
-              return;
-          }
-          delete this.sources[resolutionKey];
-      } else {
-          this.sources[resolutionKey] = url;
+    if (url === undefined) {
+      // Prevent deleting the 'original' key if it's required
+      if (resolutionKey === 'original') {
+        throw new InvalidImageSourceError("Cannot remove the 'original' image source.");
       }
+      delete this.sources[resolutionKey];
+    } else {
+      this.sources[resolutionKey] = url;
+    }
   }
 
   /**

@@ -1,6 +1,6 @@
-import { CouponCategory } from "./Coupon";
+import { LineItemNotFoundError } from "./Error";
 import LineItemModel from "./LineItem";
-import PriceModel from "./Price";
+import ProductModel from "./Product";
 import BaseShoppingContainerModel, { BaseShoppingContainerAttributes, BaseShoppingContainerData } from "./ShoppingContainer";
 
 export enum CartState {
@@ -10,17 +10,10 @@ export enum CartState {
   ORDERED = "ORDERED"
 }
 
-export class LineItemNotFoundError extends Error {
-  constructor(lineItemId: string) {
-    super(`Line item with ID '${lineItemId}' not found in the cart.`);
-    this.name = 'LineItemNotFoundError';
-  }
-}
-
 /**
  * Input attributes for creating or updating a CartModel.
  */
-export type CartAttributes = BaseShoppingContainerAttributes & {   
+export type CartAttributes = BaseShoppingContainerAttributes & {
   state: CartState;
   expireAt: number;
 };
@@ -46,56 +39,63 @@ export default class CartModel extends BaseShoppingContainerModel {
   constructor(data: CartAttributes, date: Date = new Date(), config: CartConfig = DEFAULT_CART_CONFIG) {
     super(data, date);
     this.state = data.state;
-    this.expireAt = data.expireAt && typeof data.expireAt === 'number' ? data.expireAt : Math.floor(date.getTime()/1000) + config.expiresAtInSeconds;
+    this.expireAt = data.expireAt && typeof data.expireAt === 'number' ? data.expireAt : Math.floor(date.getTime() / 1000) + config.expiresAtInSeconds;
     this.config = config;
-    
-    this.updateCartTotals();
   }
 
+  /**
+   * Gets the current state of the cart (e.g., ACTIVE, ORDERED).
+   * @returns The CartState enum value.
+   */
   public getState(): CartState {
     return this.state;
   }
 
+  /**
+   * Gets the timestamp when the cart expires.
+   * @returns The expiration timestamp in seconds (Unix epoch).
+   */
   public getExpireAt(): number {
     return this.expireAt;
   }
 
+  /**
+   * Checks if the cart is currently active and not expired.
+   * @returns True if active and not expired, false otherwise.
+   */
   public isActive(): boolean {
     const nowSeconds = Math.ceil(Date.now() / 1000);
     return this.state === CartState.ACTIVE && (this.expireAt > nowSeconds);
   }
 
   /**
-  * Recalculates all container totals (subtotal, mrpTotal, coupons, shipping, grandTotal).
-  * Should be called whenever line items, coupons, or base shipping cost change.
-  */
-  public updateCartTotals(): void {
-    // 1. Calculate line item totals (subtotal, mrpTotal)
-    this.recalculateBaseTotals();
-
-    // 2. Calculate total coupon discount and update the per-coupon discount map
-    this.recalculateCouponTotals(); // This updates this.total.couponTotal
-
-    // 3. Calculate effective shipping cost after applying shipping-specific coupons
-    const shippingCouponDiscount = this.coupons
-      .filter(c => c.getCategory() === CouponCategory.SHIPPING)
-      .reduce((sum, c) => sum + (this.total.couponTotal[c.getCode()] ?? 0), 0);
-    this.total.effectiveShipping = PriceModel.getRoundedPrice(Math.max(0, this.total.shipping - shippingCouponDiscount), this.country);
-
-    // 4. Calculate total discount from non-shipping coupons
-    const nonShippingCouponDiscount = this.coupons
-      .filter(c => c.getCategory() !== CouponCategory.SHIPPING)
-      .reduce((sum, c) => sum + (this.total.couponTotal[c.getCode()] ?? 0), 0);
-
-    // 5. Calculate final grand total: (subtotal + effective shipping) - non-shipping discounts
-    const grossTotal = this.total.subtotal + this.total.effectiveShipping;
-    this.total.grandTotal = PriceModel.getRoundedPrice(Math.max(0, grossTotal - nonShippingCouponDiscount), this.country);
-  }
-  
+   * Clears all line items, coupons, and shipping details from the cart and resets totals.
+   */
   public clearCartItems() {
     this.lineItems = [];
     this.coupons = [];
-    this.updateCartTotals();
+    this.shippingDetails = null;
+    this.total.couponTotal = {};
+    this.calculateTotals();
+  }
+
+  /**
+   * Validates line items against the current product catalog.
+   * Updates product data for each item and removes invalid items.
+   * @param products - A record map of ProductModels keyed by product ID/key.
+   */
+  public validateLineItems(products: Record<string, ProductModel>): void {
+    this.lineItems = this.lineItems.map(lineItem => {
+      try {
+        lineItem.updateProductData(products[lineItem.getProductKey()], this.country, this.currency);
+      } catch (error) {
+        console.error(`Error recalculating line item ${lineItem.getId()}:`, error);
+        lineItem.clearLineItem();
+      }
+      return lineItem;
+    }).filter(lineItem => lineItem.getId());
+
+    this.calculateTotals();
   }
 
   /**
@@ -103,20 +103,21 @@ export default class CartModel extends BaseShoppingContainerModel {
    * @param newLineItem The LineItemModel to add.
    * @returns The index of the added/updated line item in the internal array.
    */
-  public addLineItem (newLineItem: LineItemModel) {
+  public addLineItem(newLineItem: LineItemModel) {
     const productKey = newLineItem.getProductKey();
-    const variantId = newLineItem.getVariantId();
+    const selectionAttribute = newLineItem.getSelectionAttribute();
+    const selectionAttributeKey = ProductModel.generateSelectionAttributesKey(selectionAttribute);
     let index = this.lineItems.findIndex(
-      (item) => item.getProductKey() === productKey && item.getVariantId() === variantId
+      (item) => item.getProductKey() === productKey && ProductModel.generateSelectionAttributesKey(item.getSelectionAttribute()) === selectionAttributeKey
     );
 
-    if(index >= 0){
+    if (index >= 0) {
       this.lineItems[index].addSubItems(newLineItem.getSubItems(), true);
     } else {
       this.lineItems.push(newLineItem);
     }
 
-    this.updateCartTotals();
+    this.calculateTotals();
     return index >= 0 ? index : this.lineItems.length - 1;
   }
 
@@ -128,16 +129,16 @@ export default class CartModel extends BaseShoppingContainerModel {
    * @returns The index of the updated line item.
    * @throws {Error} If the line item is not found.
    */
-  public updateLineItem (lineItemId: string, size: string, quantity: number) {
+  public updateLineItem(lineItemId: string, size: string, quantity: number) {
     const lineItems = this.lineItems;
     let index = lineItems.findIndex((item) => item.getId() === lineItemId);
-    
-    if(index < 0){
+
+    if (index < 0) {
       throw new LineItemNotFoundError(lineItemId);
     }
 
     lineItems[index].addSubItems([{ size, quantity }], false);
-    this.updateCartTotals();
+    this.calculateTotals();
 
     return index;
   }
@@ -148,16 +149,16 @@ export default class CartModel extends BaseShoppingContainerModel {
    * @returns The index the item previously occupied.
    * @throws {Error} If the line item is not found.
    */
-  public removeLineItem (lineItemId: string) {
+  public removeLineItem(lineItemId: string) {
     const lineItems = this.lineItems;
     const index = lineItems.findIndex((item) => item.getId() === lineItemId);
 
-    if(index < 0){
+    if (index < 0) {
       throw new LineItemNotFoundError(lineItemId);
     }
 
     this.lineItems.splice(index, 1);
-    this.updateCartTotals();
+    this.calculateTotals();
 
     return index;
   }

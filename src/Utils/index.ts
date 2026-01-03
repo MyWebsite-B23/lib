@@ -1,4 +1,5 @@
 import { v4 as uuidv4,  v5 as uuidv5 } from 'uuid';
+import ProductModel, { SelectionAttributes } from '../Classes/Product';
 
 const Utils = {
   isUUID: (value: string): boolean => {
@@ -23,17 +24,21 @@ const Utils = {
     return uuidv4();
   },
 
-  generateSearchId: (key: string, variantId: string) => {
-    return `${key}#${variantId}`;
+  generateSearchId: (key: string, selectionAttribute: SelectionAttributes) => {
+    return `${key}#${ProductModel.generateSelectionAttributesKey(selectionAttribute)}`;
   },
 
   getKeyfromSearchId: (searchId: string) => {
-    const [key, variantId] = searchId.split('#');
+    const [key, selectionAttribute] = searchId.split('#');
     return {
       key,
-      variantId
+      selectionAttribute
     }
   },
+
+  deepClone<T>(obj: T): T {
+    return structuredClone(obj);
+  }
 }
 
 export default Utils;

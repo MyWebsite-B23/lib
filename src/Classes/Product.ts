@@ -1,129 +1,188 @@
+import Utils from "../Utils";
 import BaseModel, { BaseAttributes } from "./Base";
-import { BasePriceList, PriceTierList, Color, LocalizedString, CountryCode, LocaleCode, BasePrice, LanguageCode } from './Common';
-import { GenderCategory, LocaleLanguageMap } from "./Enum";
+import { Color, LocalizedString, CountryCode, LocaleCode, LocalizedValue, Prettify } from './Common';
+import { GenderCategory, ImageCategory, LocaleLanguageMap } from "./Enum";
+import { SelectionAttributeParseError } from "./Error";
 import ImageInfoModel, { ImageInfoData } from "./ImageInfo";
+import { TieredPriceModel, TieredPriceAttributes, TieredPriceData } from "./TieredPrice";
 
-export type ProductVariantIdentifier =  {
-  key: string;
-  variantId: string;
+export type ProductSelectionAttributes = Prettify<{
+  color: Color[];
+  size: string[];
+} & {
+  [key: string]: string | string[] | Color[];
+}>;
+
+export type SelectionAttributes = {
+  color: Color;
+  [key: string]: string | Color;
 };
 
-export type ProductHashKey = {
-  id: string;
-  variantId: string;
-}
+export type VariantData = {
+  selectionAttributes: SelectionAttributes;
+  images: {
+    primary: ImageInfoData;
+    gallery: ImageInfoData[];
+  };
+};
+
+export type VariantModel = {
+  selectionAttributes: SelectionAttributes;
+  images: {
+    primary: ImageInfoModel;
+    gallery: ImageInfoModel[];
+  };
+};
+
+
+export type ProductSpecification = { [key: string]: string | string[] };
 
 export type ProductAttributes = BaseAttributes & {
-    id: string;
-    key: string;
-    variantId: string;
+  id: string;
+  key: string;
+  sku: string;
 
-    name: LocalizedString;
-    description: LocalizedString;
-    slug: LocalizedString;
-    brand: string;
+  name: LocalizedString;
+  description: LocalizedString;
+  slug: LocalizedString;
+  brand: string;
 
-    basePrices: BasePriceList;
-    priceTiers: PriceTierList;
+  pricing: {
+    [country in CountryCode]?: TieredPriceAttributes;
+  };
 
-    attributes: {
-      color: Color;
-      sizes: string[];
-    };
+  targetGender: GenderCategory;
+  attributes: ProductSelectionAttributes;
+  specifications: LocalizedValue<ProductSpecification>;
+  categories: string[];
 
-    primaryImage: ImageInfoData;
-    additionalImages?: ImageInfoData[];
+  variants: VariantData[];
 
-    // Metadata & Categorization
-    isActive: boolean;
-    targetGender: GenderCategory;
-    categories: string[];
-    specifications: LocalizedProductSpecification;
-    searchTags?: string[];
+  // Metadata
+  isActive: boolean;
+  searchTags?: LocalizedValue<string[]>;
 };
 
 export type ProductData = Required<ProductAttributes>
 
-export type ProductSpecification = { [key: string]: string | string[] };
-
-export type LocalizedProductSpecification = {
-  en: ProductSpecification
-} & {
-  [locale in (LocaleCode | LanguageCode)]?: ProductSpecification
-}
-
 export default class ProductModel extends BaseModel {
-    protected id: string;
-    protected key: string;
-    protected variantId: string;
+  protected id: string;
+  protected key: string;
+  protected sku: string;
 
-    protected name: LocalizedString;
-    protected description: LocalizedString;
-    protected slug: LocalizedString;
-    protected brand: string;
+  protected name: LocalizedString;
+  protected description: LocalizedString;
+  protected slug: LocalizedString;
+  protected brand: string;
 
-    protected basePrices: BasePriceList;
-    protected priceTiers: PriceTierList;
+  protected pricing: {
+    [country in CountryCode]?: TieredPriceModel;
+  };
 
-    protected attributes: {
-      color: Color;
-      sizes: string[];
-    };
+  protected variants: VariantModel[];
 
-    protected primaryImage: ImageInfoModel;
-    protected additionalImages: ImageInfoModel[];
+  protected targetGender: GenderCategory;
+  protected attributes: ProductSelectionAttributes;
+  protected specifications: LocalizedValue<ProductSpecification>;
+  protected categories: string[];
 
-    protected isActive: boolean;
-    protected targetGender: GenderCategory;
-    protected categories: string[];
-    protected specifications: LocalizedProductSpecification;
-    protected searchTags: string[];
+  // Metadata
+  protected isActive: boolean;
 
-    static productKeyRegex = /^(?!\s)(?!.*\s$)[A-Z0-9-]{4,16}$/;
-    static variantIdRegex = /^(?!\s)(?!.*\s$)[A-Z0-9-]{4,16}$/;
+  protected searchTags: LocalizedValue<string[]>;
 
-    /**
-     * Creates an instance of ProductModel.
-     * Initializes properties based on the provided data, creating copies where necessary.
-     * @param data - The initial product attributes.
-     * @param date - Optional date for setting creation/modification times (defaults to now).
-    */
-    constructor(data: ProductAttributes, date: Date = new Date()) {
-        super(data, date);
-        this.id = data.id;
-        this.key = data.key;
-        this.variantId = data.variantId;
-        this.name = data.name;
-        this.description = data.description;
-        this.slug = data.slug;
-        this.brand = data.brand;
+  static productKeyRegex = /^(?!\s)(?!.*\s$)[A-Z0-9-]{4,16}$/;
 
-        this.basePrices = data.basePrices.map(price => ({ ...price }));
-        this.priceTiers = data.priceTiers ? 
-          data.priceTiers.map(tier => ({ ...tier })) 
-          : 
-          data.basePrices.map(price => ({ ...price }));;
+  /**
+   * Generates a unique key for checking uniqueness for a given selection attributes.
+   * Excludes 'size' from the key generation.
+   * @param selectionAttributes - The selection attributes.
+   * @returns A string key representing the unique attribute combination.
+   */
+  static generateSelectionAttributesKey(selectionAttributes: SelectionAttributes): string {
+    const sortedKeys = Object.keys(selectionAttributes)
+      .filter(key => selectionAttributes[key] !== undefined && key.toLowerCase() !== 'size')
+      .sort()
 
-        this.attributes = {
-            ...data.attributes,
-            sizes: [...data.attributes.sizes]
-        };
+    return sortedKeys.map(key => {
+      if ((selectionAttributes[key] as Color).name) {
+        return `${key}:c+${(selectionAttributes[key] as Color).name}`;
+      }
+      return `${key}:${selectionAttributes[key]}`;
+    }).join('|');
+  }
 
-        this.primaryImage = new ImageInfoModel(data.primaryImage);
-        this.additionalImages = (data.additionalImages || []).map(image => new ImageInfoModel(image));
-        this.isActive = data.isActive;
-        this.targetGender = data.targetGender;
-        this.categories = [...data.categories];
-        this.specifications = JSON.parse(JSON.stringify({ ...data.specifications }));
-        this.searchTags = data.searchTags ? [...data.searchTags] : [];
+  /**
+   * Parses a selection attributes key into an object.
+   * @param key - The selection attributes key to parse.
+   * @returns An object containing the parsed selection attributes.
+   */
+  static parseSelectionAttributesKey(key: string): SelectionAttributes {
+    try {
+      const attributes: SelectionAttributes = {} as unknown as SelectionAttributes;
+      const parts = key.split('|');
+      for (const part of parts) {
+        const [key, value] = part.split(':');
+        if (value.startsWith('c+')) {
+          attributes[key] = { name: value.slice(2) } as Color;
+        } else {
+          attributes[key] = value;
+        }
+      }
+      return attributes;
+    } catch (error: any) {
+      throw new SelectionAttributeParseError(error?.message);
     }
+  }
+
+  /**
+   * Creates an instance of ProductModel.
+   * Initializes properties based on the provided data, creating copies where necessary.
+   * @param data - The initial product attributes.
+   * @param date - Optional date for setting creation/modification times (defaults to now).
+  */
+  constructor(data: ProductAttributes, date: Date = new Date()) {
+    super(data, date);
+
+    this.id = data.id;
+    this.key = data.key;
+    this.sku = data.sku;
+
+    this.name = { ...data.name };
+    this.description = { ...data.description };
+    this.slug = { ...data.slug };
+    this.brand = data.brand;
+
+    this.pricing = (Object.keys(data.pricing) as CountryCode[]).reduce((acc, country) => {
+      if (data.pricing[country]) {
+        acc[country] = new TieredPriceModel(data.pricing[country]);
+      }
+      return acc;
+    }, {} as { [country in CountryCode]?: TieredPriceModel });
+
+    this.targetGender = data.targetGender;
+    this.attributes = Utils.deepClone(data.attributes);
+    this.specifications = Utils.deepClone(data.specifications);
+    this.categories = Utils.deepClone(data.categories);
+
+    this.variants = (data.variants || []).map(variant => ({
+      selectionAttributes: variant.selectionAttributes,
+      images: {
+        primary: new ImageInfoModel(variant.images.primary),
+        gallery: (variant.images.gallery || []).map(image => new ImageInfoModel(image))
+      }
+    }));
+
+    this.isActive = data.isActive;
+    this.searchTags = data.searchTags ? Utils.deepClone(data.searchTags) : { en: [] };
+  }
 
   /**
    * Gets the base Product ID.
    * @returns Product ID.
   */
   getId(): string {
-      return this.id;
+    return this.id;
   }
 
   /**
@@ -131,15 +190,15 @@ export default class ProductModel extends BaseModel {
    * @returns Product Key.
    */
   getKey(): string {
-      return this.key;
+    return this.key;
   }
 
   /**
-   * Gets the specific Variant ID.
-   * @returns Variant ID.
+   * Gets the SKU for the product.
+   * @returns SKU string.
    */
-  getVariantId(): string {
-      return this.variantId;
+  getSku(): string {
+    return this.sku;
   }
 
   /**
@@ -154,10 +213,10 @@ export default class ProductModel extends BaseModel {
    */
   getName(locale: LocaleCode): string
   getName(locale?: LocaleCode): LocalizedString | string {
-    if(locale) {
+    if (locale) {
       return this.name[locale] ?? this.name[LocaleLanguageMap[locale]] ?? this.name.en;
     } else {
-      return { ...this.name };
+      return Utils.deepClone(this.name);
     }
   }
 
@@ -172,11 +231,11 @@ export default class ProductModel extends BaseModel {
    * @returns The description string for the specified locale.
    */
   getDescription(locale: LocaleCode): string
-  getDescription(locale?: LocaleCode): LocalizedString | string  {
-    if(locale){
+  getDescription(locale?: LocaleCode): LocalizedString | string {
+    if (locale) {
       return this.description[locale] ?? this.description[LocaleLanguageMap[locale]] ?? this.description.en;
     } else {
-      return { ...this.description };
+      return Utils.deepClone(this.description);
     }
   }
 
@@ -195,7 +254,7 @@ export default class ProductModel extends BaseModel {
     if (locale) {
       return this.slug[locale] ?? this.slug[LocaleLanguageMap[locale]] ?? this.slug.en;
     } else {
-      return { ...this.slug };
+      return Utils.deepClone(this.slug);
     }
   }
 
@@ -204,77 +263,77 @@ export default class ProductModel extends BaseModel {
    * @returns The brand name string.
    */
   getBrand(): string {
-      return this.brand;
+    return this.brand;
   }
 
   /**
-   * Gets the base price(s) for the product variant.
-   * If a country code is provided, it returns the specific base price defined for that country, or null if no price is defined for that country.
-   * If no country code is provided, it returns a list of all defined base prices across different countries.
-   * Returns copies of the price objects to prevent modification of internal state.
-   *
-   * @param country - Optional country code to retrieve the base price for a specific region.
+   * Gets the tiered price details for the product.
+   * @returns Pricing details mapped by country.
    */
-  getBasePrices(): BasePriceList
-  getBasePrices(country: CountryCode): BasePrice | null
-  getBasePrices(country?: CountryCode): BasePriceList | BasePrice | null {
-    if(country) {
-      const countryPrice = this.basePrices.find(price => price.country === country);
-      return countryPrice ? { ...countryPrice } : null;
+  getPriceDetails(): { [country in CountryCode]?: TieredPriceModel }
+  /**
+   * Gets the tiered price details for a specific country.
+   * @param country - The country code.
+   * @returns The tiered price model for the country, or null if not found.
+   */
+  getPriceDetails(country: CountryCode): TieredPriceModel | null
+  getPriceDetails(country?: CountryCode): { [country in CountryCode]?: TieredPriceModel } | TieredPriceModel | null {
+    if (country) {
+      return this.pricing[country] ?? null;
     }
-
-    return this.basePrices.map(price => ({ ...price }));
-  }
-
-  /**
-   * Gets the list of quantity-based price tiers for the product variant, sorted by minimum quantity in ascending order.
-   * Returns copies of the price tier objects to prevent modification of internal state.
-   * If a country code is provided, the list is filtered to include only tiers applicable to that country.
-   *
-   * @param country - Optional country code to filter the price tiers for a specific region.
-   * @returns A sorted list (by `minQuantity`) of applicable `PriceTier` objects. Returns an empty list if no tiers are defined or if none match the specified country.
-   */
-  getPriceTiers(country?: CountryCode): PriceTierList {
-    const filteredTiers = country ? this.priceTiers.filter(tier => tier.country === country) : this.priceTiers;
-    return filteredTiers
-      .map(tier => ({ ...tier }))
-      .sort((a,b) => a.minQuantity - b.minQuantity);
+    return this.pricing;
   }
 
   /**
    * Gets the variant-specific attributes (color, sizes). Returns copies.
    * @returns Product Attributes.
    */
-  getAttributes(): { color: Color; sizes: string[] } {
-      return {
-          ...this.attributes,
-          color: { ...this.attributes.color },
-          sizes: [...this.attributes.sizes]
-      };
+  getAttributes(): ProductSelectionAttributes {
+    return Utils.deepClone(this.attributes);
   }
 
+
   /**
-   * Gets details of product's primary image.
-   * @returns The ImageInfoModel instance for the primary image.
+   * Gets the images for a specific selection attribute combination.
+   * @param selectionAttributes - The selection attributes to search for.
+   * @returns The matching image set or null if not found.
    */
-  getPrimaryImage(): ImageInfoModel {
-      return this.primaryImage;
+  private getImagesBySelectionAttributes(selectionAttributes: SelectionAttributes): { primary: ImageInfoModel; gallery: ImageInfoModel[] } | null {
+    const searchKey = ProductModel.generateSelectionAttributesKey(selectionAttributes);
+
+    const match = this.variants.find(variant =>
+      ProductModel.generateSelectionAttributesKey(variant.selectionAttributes) === searchKey
+    );
+
+    return match ? match.images : null;
   }
 
   /**
-   * Gets the list of additional product images.
-   * @returns An array of ImageInfoModel instances.
+   * Gets the images for a specific selection attribute combination.
+   * @param selectionAttributes - The selection attributes to search for.
+   * @returns The matching image set or null if not found.
    */
-  getAdditionalImages(): ImageInfoModel[] {
-      return this.additionalImages;
+  getImages(selectionAttributes: SelectionAttributes): { primary: ImageInfoModel; gallery: ImageInfoModel[] }
+  getImages(selectionAttributes: SelectionAttributes, category: ImageCategory.PRIMARY): ImageInfoModel
+  getImages(selectionAttributes: SelectionAttributes, category: ImageCategory.GALLERY): ImageInfoModel[]
+  getImages(selectionAttributes: SelectionAttributes, category?: ImageCategory): { primary: ImageInfoModel; gallery: ImageInfoModel[] } | ImageInfoModel | ImageInfoModel[] {
+    switch (category) {
+      case ImageCategory.PRIMARY:
+        return this.getImagesBySelectionAttributes(selectionAttributes)?.primary ?? this.variants[0]?.images?.primary;
+      case ImageCategory.GALLERY:
+        return this.getImagesBySelectionAttributes(selectionAttributes)?.gallery ?? [];
+      default:
+        return this.getImagesBySelectionAttributes(selectionAttributes) ?? { primary: this.variants[0]?.images?.primary, gallery: [] };
+    }
   }
 
+
   /**
-   * Checks if the product variant is active.
+   * Checks if the product is active.
    * @returns True if the product is active, false otherwise.
    */
   getIsActive(): boolean {
-      return this.isActive;
+    return this.isActive;
   }
 
   /**
@@ -282,7 +341,7 @@ export default class ProductModel extends BaseModel {
    * @returns The GenderCategory enum value.
    */
   getTargetGender(): GenderCategory {
-      return this.targetGender;
+    return this.targetGender;
   }
 
   /**
@@ -290,34 +349,45 @@ export default class ProductModel extends BaseModel {
    * @returns An array of category.
    */
   getCategories(): string[] {
-      return [...this.categories];
+    return Utils.deepClone(this.categories);
   }
 
   /**
    * Gets the full localized product specifications object.
    * @returns Product Specifications
    */
-  getSpecifications(): LocalizedProductSpecification
+  getSpecifications(): LocalizedValue<ProductSpecification>
   /**
    * Gets the product specifications for a specific locale, falling back to English ('en').
    * @param locale - The desired locale code.
    * @returns The ProductSpecification object for the specified locale, or undefined if not found.
    */
   getSpecifications(locale: LocaleCode): ProductSpecification | undefined
-  getSpecifications(locale?: LocaleCode): LocalizedProductSpecification | ProductSpecification | undefined {
-      if(locale){
-        return this.specifications[locale] ?? this.specifications[LocaleLanguageMap[locale]] ?? this.specifications.en;
-      } else {
-        return JSON.parse(JSON.stringify(this.specifications));
-      }
+  getSpecifications(locale?: LocaleCode): LocalizedValue<ProductSpecification> | ProductSpecification | undefined {
+    if (locale) {
+      return Utils.deepClone(this.specifications[locale] ?? this.specifications[LocaleLanguageMap[locale]] ?? this.specifications.en);
+    } else {
+      return Utils.deepClone(this.specifications);
+    }
   }
 
   /**
-   * Gets the list of search tags. Returns a copy.
-   * @returns An array of search tags.
+   * Gets the localized list of search tags. Returns a copy.
+   * @returns Localized array of search tags.
    */
-  getSearchTags(): string[] {
-      return [...this.searchTags];
+  getSearchTags(): LocalizedValue<string[]>
+  /**
+   * Gets the search tags for a specific locale, falling back to English ('en').
+   * @param locale - The desired locale code.
+   * @returns The array of search tags for the specified locale, or undefined if not found.
+   */
+  getSearchTags(locale: LocaleCode): string[] | undefined
+  getSearchTags(locale?: LocaleCode): LocalizedValue<string[]> | string[] | undefined {
+    if (locale) {
+      return Utils.deepClone(this.searchTags[locale] ?? this.searchTags[LocaleLanguageMap[locale]] ?? this.searchTags.en);
+    } else {
+      return Utils.deepClone(this.searchTags);
+    }
   }
 
   /**
@@ -325,72 +395,56 @@ export default class ProductModel extends BaseModel {
    * @returns ProductData
    */
   getDetails(): ProductData {
-      const baseDetails = super.getDetails();
-      return {
-          id: this.getId(),
-          key: this.getKey(),
-          variantId: this.getVariantId(),
-          name: this.getName(),
-          description: this.getDescription(),
-          slug: this.getSlug(),
-          brand: this.getBrand(),
-          basePrices: this.getBasePrices(),
-          priceTiers: this.getPriceTiers(),
-          attributes: this.getAttributes(),
-          primaryImage: this.getPrimaryImage().getDetails(),
-          additionalImages: this.getAdditionalImages().map(image => image.getDetails()),
-          isActive: this.getIsActive(),
-          targetGender: this.getTargetGender(),
-          categories: this.getCategories(),
-          specifications: this.getSpecifications(),
-          searchTags: this.getSearchTags(),
-          ...baseDetails
-      }; 
+    const baseDetails = super.getDetails();
+    return {
+      id: this.getId(),
+      key: this.getKey(),
+      sku: this.getSku(),
+      name: this.getName(),
+      description: this.getDescription(),
+      slug: this.getSlug(),
+      brand: this.getBrand(),
+      pricing: (Object.keys(this.pricing) as CountryCode[]).reduce((acc, country) => {
+        if (this.pricing[country]) {
+          acc[country] = this.pricing[country]?.getDetails();
+        }
+        return acc;
+      }, {} as { [country in CountryCode]: TieredPriceData }),
+      attributes: this.getAttributes(),
+      variants: this.variants.map(v => ({
+        selectionAttributes: Utils.deepClone(v.selectionAttributes),
+        images: {
+          primary: v.images.primary.getDetails(),
+          gallery: v.images.gallery.map(img => img.getDetails())
+        }
+      })),
+      isActive: this.getIsActive(),
+      targetGender: this.getTargetGender(),
+      categories: this.getCategories(),
+      specifications: this.getSpecifications(),
+      searchTags: this.getSearchTags(),
+      ...baseDetails
+    };
+  }
+
+
+  /**
+   * Validates if the provided selection attributes exist for this product.
+   * @param selectionAttributes - The attributes to validate.
+   * @returns True if a valid selection attribute exists, false otherwise.
+   */
+  validateSelectionAttribute(selectionAttributes: SelectionAttributes): boolean {
+    const searchKey = ProductModel.generateSelectionAttributesKey(selectionAttributes);
+
+    return this.variants.some(variant => ProductModel.generateSelectionAttributesKey(variant.selectionAttributes) === searchKey);
   }
 
   /**
-   * Calculates the maximum potential discount percentage for a given country
-   * based on the lowest price tier compared to the base price.
-   * @param country - The country code to calculate the discount for.
-   * @returns The maximum discount percentage (0-100), or 0 if calculation is not possible.
+   * Validates if a specific size is available for this product.
+   * @param size - The size to check.
+   * @returns True if the size exists in the product's attributes, false otherwise.
    */
-  getMaxDiscountPercent(country: CountryCode): number {
-    // Find base price for the country (should be unique per country)
-    const basePrice = this.basePrices.find(price => price.country === country);
-
-    // Find the lowest unit price among tiers for the country
-    const lowestTierPrice = this.priceTiers
-                                ?.filter(tier => tier.country === country) // Filter tiers for the country first
-                                .sort((a, b) => a.unitPrice - b.unitPrice)[0]?.unitPrice; // Then sort and get lowest
-
-    // Validate prices before calculation
-    if (!basePrice || basePrice.unitPrice <= 0 || lowestTierPrice === undefined) {
-        return 0; // Cannot calculate discount
-    }
-
-    // Calculate discount, ensuring it's not negative
-    const discount = Math.max(0, basePrice.unitPrice - lowestTierPrice);
-
-    // Calculate percentage
-    return (discount / basePrice.unitPrice) * 100;
+  validateSize(size: string): boolean {
+    return this.attributes.size.includes(size);
   }
-
-  /**
-   * Gets the minimum quantity required to purchase this product variant in a specific country,
-   * based on the lowest minimum quantity defined in its price tiers for that country.
-   *
-   * @param country - The country code for which to determine the minimum purchase quantity.
-   * @returns The minimum quantity required.
-   * @throws {Error} If no price tiers are defined for the specified country.
-   */
-  getMinQuantity(country: CountryCode): number {
-    const priceTiers = this.getPriceTiers(country);
-
-    if (priceTiers.length === 0) {
-      throw Error('No price tiers found for country');
-    }
-    return priceTiers[0].minQuantity;
-  }
-
-  
 }

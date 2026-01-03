@@ -2,17 +2,39 @@ import BaseModel, { BaseAttributes, BaseData } from "./Base";
 import AddressModel, { AddressData } from "./Address";
 import LineItemModel, { LineItemData } from "./LineItem";
 import { CountryCode, CurrencyCode, LocaleCode, ShippingDetails } from "./Common";
-import PriceModel from "./Price";
-import CouponModel, { CouponCategory, CouponData, CouponDiscountMethod } from "./Coupon";
+import PriceModel, { PriceData } from "./Price";
+import CouponModel, { CouponCategory, CouponData, CouponType } from "./Coupon";
+import Utils from "../Utils";
+import { LineItemState, TaxCategory } from "./Enum";
+import { TaxRuleModel } from "./TaxRule";
 
 export type ShoppingContainerTotal = {
-  shipping?: number;
-  effectiveShipping?: number;
-  subtotal?: number;
-  mrpTotal?: number;
-  couponTotal?: { [key: string]: number };
-  grandTotal?: number;
-}
+  /** Sum of item prices before discounts & tax */
+  subtotal: PriceData;
+
+  /** Original shipping cost before coupons / promotions */
+  shipping: PriceData;
+
+  /** Shipping after coupons / promotions (>= 0) */
+  effectiveShipping: PriceData;
+
+  /** Total tax amount (all tax rules combined) */
+  taxTotal: PriceData;
+
+  /**
+   * Coupon discounts applied
+   * key = couponCode (or couponId)
+   * value = discount amount (positive number)
+   */
+  couponTotal: Record<string, PriceData>;
+
+  /** Total discount from coupons (derived, optional to store) */
+  couponDiscountTotal: PriceData;
+
+  /** Final payable amount */
+  grandTotal: PriceData;
+};
+
 
 export type BaseShoppingContainerAttributes = BaseAttributes & {
   id: string;
@@ -23,26 +45,14 @@ export type BaseShoppingContainerAttributes = BaseAttributes & {
   shippingDetails: ShippingDetails | null;
   shippingAddress?: AddressData | null;
   billingAddress?: AddressData | null;
-  coupons?: CouponData[];
-  total?: ShoppingContainerTotal;
+  coupons: CouponData[];
+  total: ShoppingContainerTotal;
   country: CountryCode;
   currency: CurrencyCode;
   locale: LocaleCode;
 };
 
-export type BaseShoppingContainerData = Omit<BaseShoppingContainerAttributes, 'coupons' | 'total'>
-& BaseData
-& {
-    coupons: CouponData[],
-    total: {
-      shipping: number,
-      effectiveShipping: number,
-      subtotal: number,
-      mrpTotal: number,
-      couponTotal: { [key: string]: number },
-      grandTotal: number
-    };
-  };
+export type BaseShoppingContainerData = BaseShoppingContainerAttributes & BaseData
 
 
 /**
@@ -59,17 +69,18 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
   protected shippingAddress: AddressModel | null;
   protected billingAddress: AddressModel | null;
 
-    // CouponsCodes
+  // CouponsCodes
   protected coupons: CouponModel[];
 
   // Cart Totals
   protected total: {
-    shipping: number;
-    effectiveShipping: number;
-    subtotal: number;
-    mrpTotal: number;
-    couponTotal: { [key: string]: number; };
-    grandTotal: number;
+    subtotal: PriceModel;
+    shipping: PriceModel;
+    effectiveShipping: PriceModel;
+    taxTotal: PriceModel;
+    couponTotal: Record<string, PriceModel>;
+    couponDiscountTotal: PriceModel;
+    grandTotal: PriceModel;
   };
 
   protected country: CountryCode;
@@ -94,27 +105,21 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
     this.lineItems = (data.lineItems ?? []).map(item => new LineItemModel(item));
     this.billingAddress = data.billingAddress ? new AddressModel(data.billingAddress, date) : null;
     this.shippingAddress = data.shippingAddress ? new AddressModel(data.shippingAddress, date) : null;
-    this.coupons = (data.coupons || []).map(coupon => new CouponModel(coupon));
+    this.coupons = (data.coupons ?? []).map(coupon => new CouponModel(coupon));
 
-    this.shippingDetails = data.shippingDetails ? { ...data.shippingDetails } : null;
+    this.shippingDetails = data.shippingDetails ? Utils.deepClone(data.shippingDetails) : null;
 
     this.total = {
-      shipping: data.total?.shipping || 0,
-      effectiveShipping: data.total?.effectiveShipping ?? data.total?.shipping ?? 0,
-      subtotal: data.total?.subtotal || 0,
-      mrpTotal: data.total?.mrpTotal || 0,
-      couponTotal: data.total?.couponTotal || {},
-      grandTotal: data.total?.grandTotal || 0,
+      subtotal: new PriceModel(data.total.subtotal),
+      shipping: new PriceModel(data.total.shipping),
+      effectiveShipping: new PriceModel(data.total.effectiveShipping),
+      taxTotal: new PriceModel(data.total.taxTotal),
+      couponTotal: Object.fromEntries(
+        Object.entries(data.total.couponTotal).map(([key, value]) => [key, new PriceModel(value)])
+      ),
+      couponDiscountTotal: new PriceModel(data.total.couponDiscountTotal),
+      grandTotal: new PriceModel(data.total.grandTotal),
     };
-  }
-
-  /**
-   * Recalculates the subtotal and mrpTotal based on the current line items.
-   * Uses PriceModel for rounding based on the country.
-   */
-  protected recalculateBaseTotals(): void {
-    this.total.subtotal = PriceModel.getRoundedPrice(this.lineItems.reduce((sum, item) => sum + item.getPriceTotals().subtotal, 0), this.country);
-    this.total.mrpTotal = PriceModel.getRoundedPrice(this.lineItems.reduce((sum, item) => sum + item.getPriceTotals().mrpTotal, 0), this.country);
   }
 
   /**
@@ -160,8 +165,8 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
   }
 
   /**
-   * Gets current number of line items in the container
-   * @returns 
+   * Gets current number of line items in the container.
+   * @returns The count of line items.
    */
   public getLineItemsCount(): number {
     return this.lineItems.length;
@@ -200,7 +205,7 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
   public hasBillingAddress(): boolean {
     return !!this.billingAddress;
   }
-  
+
   /**
    * Gets a defensive copy of the billing address associated with the container.
    * Returns a new AddressModel instance created from the original's details.
@@ -216,7 +221,7 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
    * @returns An array of CouponModel instances.
    */
   public getCoupons(): CouponModel[] {
-    return this.coupons.map(coupon => new CouponModel(coupon.getDetails()));
+    return this.coupons;
   }
 
   /**
@@ -248,89 +253,8 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
    * @returns An object containing shipping, subtotal, coupon, and grand totals.
    */
   public getTotal() {
-    return  { ...this.total, couponTotal: { ...this.total.couponTotal } };
+    return this.total;
   }
-
-  /**
-   * Calculates the discount value for a given coupon based on the current container state.
-   * Returns 0 if the coupon is invalid, expired, or not applicable based on cart value or target category.
-   * @param coupon - The CouponModel instance to evaluate.
-   * @param checkExpiry - Whether to check the coupon's expiry status.
-   * @returns The calculated discount amount (rounded according to country rules).
-   */
-  public calculateApplicableCouponDiscount(coupon: CouponModel, checkExpiry: boolean = true): number {
-    // 1. Basic validation (active)
-    if (checkExpiry && !coupon.isActive()) {
-      return 0;
-    }
-
-    // 2. Check regional requirements (min cart value, max discount)
-    const minCartValueReq = coupon.getMinCartValue(this.country);
-    const maxCartDiscountCap = coupon.getMaxCartDiscount(this.country);
-
-    // Ensure minCartValueReq exists and subtotal meets the requirement
-    if (!minCartValueReq || this.total.subtotal < minCartValueReq.price) {
-      return 0;
-    }
-
-    // Ensure maxCartDiscountCap exists and is non-negative
-    if (!maxCartDiscountCap || maxCartDiscountCap.price < 0) {
-      return 0;
-    }
-
-    // 3. Calculate potential discount based on method and category
-    const couponCategory = coupon.getCategory();
-    const discountMethod = coupon.getDiscountMethod();
-    let potentialDiscount = 0;
-    // Determine the value the coupon applies to (shipping cost or subtotal)
-    const targetValue = couponCategory === CouponCategory.SHIPPING ? this.total.shipping : this.total.subtotal;
-
-    // No discount if the target value is zero or less
-    if (targetValue <= 0) return 0;
-
-    switch (discountMethod) {
-      case CouponDiscountMethod.FLAT:
-        // Flat discount is capped by the target value itself and the max discount cap
-        const flatAmount = maxCartDiscountCap?.price ?? 0; // Use cap as the flat amount source? Or coupon.value? Needs clarification. Assuming cap IS the flat amount here.
-        potentialDiscount = Math.min(targetValue, flatAmount);
-        break;
-      case CouponDiscountMethod.PERCENTAGE:
-        // Calculate percentage discount based on the target value
-        potentialDiscount = targetValue * (coupon.getPercentageValue() / 100);
-        break;
-      default:
-        // Unknown discount method
-        return 0;
-    }
-
-    // 4. Apply maximum discount cap to the calculated potential discount
-    const finalDiscount = Math.min(potentialDiscount, maxCartDiscountCap.price);
-
-    // 5. Round the final discount, ensuring it's not negative
-    return PriceModel.getRoundedPrice(Math.max(0, finalDiscount), this.country);
-  }
-
-  /**
-   * Recalculates the `couponTotal` map based on currently applied coupons.
-   * Iterates through coupons, calculates their applicable discount, and stores it.
-   * @param checkExpiry - Whether to check the expiry status of coupons.
-   * @returns The total discount amount from all valid and applicable coupons (rounded).
-   */
-  public recalculateCouponTotals(checkExpiry: boolean = true): number {
-    this.total.couponTotal = {};
-    let totalDiscount = 0;
-
-    this.coupons.forEach(coupon => {
-      const discount = this.calculateApplicableCouponDiscount(coupon, checkExpiry);
-      if (discount > 0) {
-        this.total.couponTotal[coupon.getCode()] = discount; // Store per-coupon discount
-        totalDiscount += discount; // Accumulate total discount
-      }
-    });
-    // Return the rounded total discount
-    return PriceModel.getRoundedPrice(totalDiscount, this.country);
-  }
-
 
   /**
    * Gets a plain data object representing the shopping container's current state.
@@ -338,21 +262,206 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
    * @returns BaseShoppingContainerData object suitable for serialization or API responses.
    */
   getDetails(): BaseShoppingContainerData {
-     return {
-       ...super.getDetails(),
-       id: this.getId(),
-       customerId: this.getCustomerId(),
-       customerEmail: this.getCustomerEmail(),
-       anonymousId: this.getAnonymousId(),
-       lineItems: this.getLineItems().map(item => item.getDetails()),
-       shippingDetails: this.getShippingDetails(),
-       shippingAddress: this.getShippingAddress()?.getDetails() || null,
-       billingAddress: this.getBillingAddress()?.getDetails() || null,
-       coupons: this.getCoupons().map(coupon => coupon.getDetails()),
-       total: this.getTotal(),
-       country: this.getCountry(),
-       currency: this.getCurrency(),
-       locale: this.getLocale(),
-     }
-   };
+    return {
+      ...super.getDetails(),
+      id: this.getId(),
+      customerId: this.getCustomerId(),
+      customerEmail: this.getCustomerEmail(),
+      anonymousId: this.getAnonymousId(),
+      lineItems: this.getLineItems().map(item => item.getDetails()),
+      shippingDetails: this.getShippingDetails(),
+      shippingAddress: this.getShippingAddress()?.getDetails() || null,
+      billingAddress: this.getBillingAddress()?.getDetails() || null,
+      coupons: this.getCoupons().map(coupon => coupon.getDetails()),
+      total: {
+        subtotal: this.getTotal().subtotal.getDetails(),
+        shipping: this.getTotal().shipping.getDetails(),
+        effectiveShipping: this.getTotal().effectiveShipping.getDetails(),
+        taxTotal: this.getTotal().taxTotal.getDetails(),
+        couponTotal: Object.fromEntries(Object.entries(this.getTotal().couponTotal).map(([key, value]) => [key, value.getDetails()])),
+        couponDiscountTotal: this.getTotal().couponDiscountTotal.getDetails(),
+        grandTotal: this.getTotal().grandTotal.getDetails(),
+      },
+      country: this.getCountry(),
+      currency: this.getCurrency(),
+      locale: this.getLocale(),
+    }
+  };
+
+  /**
+   * Recalculates the total costs for the shopping container.
+   * This includes summing line items, calculating shipping, applying coupons, and computing taxes.
+   */
+  public calculateTotals(): void {
+    const zero = new PriceModel({ amount: 0, currency: this.currency });
+    const filteredLineItems = this.lineItems.filter(lineitem => lineitem.getState() !== LineItemState.CANCELLED);
+    const subTotal = filteredLineItems.reduce((total, lineItem) => total.add(lineItem.getTotal().subtotal), zero);
+
+    const shipping = new PriceModel({ amount: this.shippingDetails?.cost || 0, currency: this.currency }).round();
+
+    let couponDiscountTotal = zero;
+    let couponTotal: Record<string, PriceModel> = {};
+    let nonShippingCouponTotal: Record<string, PriceModel> = {};
+    this.coupons.forEach(coupon => {
+      const couponValue = coupon.calculateApplicableCouponDiscount(subTotal, shipping, this.country, this.currency);
+      couponDiscountTotal = couponDiscountTotal.add(couponValue);
+      couponTotal[coupon.getCode()] = couponValue;
+      if (coupon.getCategory() !== CouponCategory.SHIPPING) {
+        nonShippingCouponTotal[coupon.getCode()] = couponValue;
+      }
+    })
+    this.applyDiscountsInLineItem(nonShippingCouponTotal);
+
+    const taxTotal = filteredLineItems.reduce((total, lineItem) => total.add(lineItem.getTotal().taxTotal), zero);
+    const shippingCoupon = this.coupons.find(coupon => coupon.getCategory() === CouponCategory.SHIPPING);
+    const effectiveShipping = shippingCoupon ? shipping.subtract(couponTotal[shippingCoupon.getCode()] || zero) : shipping;
+
+    const grandTotal = subTotal.add(shipping).add(taxTotal).subtract(couponDiscountTotal);
+
+    this.total = {
+      subtotal: subTotal,
+      shipping: shipping,
+      effectiveShipping: effectiveShipping,
+      couponTotal: couponTotal,
+      couponDiscountTotal: couponDiscountTotal,
+      taxTotal: taxTotal,
+      grandTotal: grandTotal,
+    };
+  }
+
+  /**
+   * Updates the shipping details and recalculates the totals.
+   * @param shippingDetails - The new shipping details to apply.
+   */
+  public updateShippingDetails(shippingDetails: ShippingDetails): void {
+    this.shippingDetails = shippingDetails;
+    this.calculateTotals();
+  }
+
+  /**
+   * Applies a list of coupons to the shopping container.
+   * Filters out invalid coupons, separates shipping and non-shipping coupons,
+   * and distributes discounts to line items.
+   * @param applicableCoupons - The list of coupons to attempt to apply.
+   */
+  public applyCoupons(applicableCoupons: CouponModel[]): void {
+    //Apply coupons
+    const shippingCoupons = applicableCoupons.filter(coupon => coupon.getCategory() === CouponCategory.SHIPPING);
+    const otherCoupons = applicableCoupons.filter(coupon => coupon.getCategory() !== CouponCategory.SHIPPING);
+
+    this.coupons = [];
+    this.total.couponDiscountTotal = this.total.subtotal.zero();
+    this.total.couponTotal = {};
+    // Apply non shipping coupons
+    otherCoupons.length && this.applyNonShippingCoupons(otherCoupons);
+    this.applyDiscountsInLineItem(this.total.couponTotal);
+
+    // Apply shipping coupons
+    shippingCoupons.length && this.applyShippingCoupons(shippingCoupons);
+
+    this.calculateTotals();
+  }
+
+  /**
+   * Distributes the total discount amount among the line items.
+   * @param couponTotal - A record of coupon codes and their calculated discount amounts.
+   */
+  private applyDiscountsInLineItem(couponTotal: Record<string, PriceModel>) {
+    const couponDiscounts: [string, PriceModel][] = Array.from(Object.entries(couponTotal))
+      .filter(couponDiscount => !couponDiscount[1].isZero());
+
+    const itemDiscounts = new Map<string, { coupon: CouponModel, amount: PriceModel }[]>();
+    this.lineItems.forEach(li => itemDiscounts.set(li.getId(), []));
+
+    couponDiscounts.forEach(([code, totalDiscount]) => {
+      const coupon = this.coupons.find(c => c.getCode() === code);
+      if (!coupon) return;
+
+      const validItems = this.lineItems
+        .filter(li => li.getState() !== LineItemState.CANCELLED && !li.getTotal().subtotal.isZero())
+        .sort((a, b) => a.getTotal().subtotal.compareTo(b.getTotal().subtotal));
+
+      let distributed = new PriceModel({ amount: 0, currency: this.currency });
+
+      validItems.forEach((item, index) => {
+        let amount: PriceModel;
+        if (index === validItems.length - 1) {
+          amount = totalDiscount.subtract(distributed);
+        } else {
+          amount = totalDiscount.multiply(item.getTotal().subtotal).divide(this.total.subtotal).round();
+        }
+        distributed = distributed.add(amount);
+        itemDiscounts.get(item.getId())?.push({ coupon, amount });
+      });
+    });
+
+    this.lineItems.forEach(lineItem => {
+      if (lineItem.getState() === LineItemState.CANCELLED || this.total.subtotal.isZero()) {
+        lineItem.updateDiscounts([]);
+      } else {
+        lineItem.updateDiscounts(itemDiscounts.get(lineItem.getId()) || []);
+      }
+    });
+  }
+
+  /**
+   * Updates the tax rules for all line items and recalculates totals.
+   * @param taxRules - A record of tax rules keyed by tax category.
+   */
+  public updateTax(taxRules: Record<TaxCategory, TaxRuleModel>): void {
+    this.lineItems.forEach(lineItem => {
+      lineItem.updateTax(taxRules[lineItem.getPricing().taxCategory]);
+    });
+    this.calculateTotals();
+  }
+
+  /**
+   * Selects and applies the best applicable non-shipping coupon.
+   * Currently supports applying only a single coupon of type COUPON.
+   * @param applicableCoupons - List of available non-shipping coupons.
+   */
+  private applyNonShippingCoupons(applicableCoupons: CouponModel[]) {
+    const coupons = applicableCoupons.filter(coupon => coupon.getType() === CouponType.COUPON);
+    if (coupons.length === 1) {
+      const couponValue = coupons[0].calculateApplicableCouponDiscount(this.total.subtotal, this.total.shipping, this.country, this.currency);
+      if (couponValue.getAmount() > 0) {
+        this.coupons.push(coupons[0]);
+        this.total.couponTotal[coupons[0].getCode()] = couponValue;
+        this.total.couponDiscountTotal = couponValue;
+      }
+    }
+    // Todo: Add support to other type in future like promotion
+  }
+
+  /**
+   * Selects and applies the best applicable shipping coupon.
+   * @param applicableCoupons - List of available shipping coupons.
+   */
+  private applyShippingCoupons(applicableCoupons: CouponModel[]) {
+    if (this.total.shipping.getAmount() > 0 && applicableCoupons.length > 0) {
+      const subTotalWithCouponDiscount = this.total.subtotal.subtract(this.total.couponDiscountTotal);
+
+      const maxValuedCoupon = applicableCoupons.reduce((maxCoupon, currentCoupon) => {
+        if (!maxCoupon) return currentCoupon;
+
+        const currentCouponValue = currentCoupon.calculateApplicableCouponDiscount(subTotalWithCouponDiscount, this.total.shipping, this.country, this.currency).min(this.total.shipping);
+        const maxCouponValue = maxCoupon.calculateApplicableCouponDiscount(subTotalWithCouponDiscount, this.total.shipping, this.country, this.currency).min(this.total.shipping);
+
+        if (currentCouponValue === maxCouponValue) {
+          return currentCoupon.getType() === 'coupon' ? currentCoupon : maxCoupon;
+        }
+        return currentCouponValue > maxCouponValue ? currentCoupon : maxCoupon;
+      });
+
+      const couponValue = maxValuedCoupon.calculateApplicableCouponDiscount(subTotalWithCouponDiscount, this.total.shipping, this.country, this.currency).min(this.total.shipping);
+      if (couponValue.getAmount() > 0) {
+        this.coupons.push(maxValuedCoupon);
+        this.total.couponTotal[maxValuedCoupon.getCode()] = couponValue;
+        this.total.couponDiscountTotal = this.total.couponDiscountTotal.add(couponValue);
+        this.total.effectiveShipping = this.total.shipping.subtract(couponValue);
+      }
+    }
+  }
 }
+
+

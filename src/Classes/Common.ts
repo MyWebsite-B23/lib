@@ -1,6 +1,7 @@
 import { OperationalCountry, OperationalCountryCurrency, OperationalLanguage, OperationalLocale } from "./Enum";
+import { PriceData } from "./Price";
 
-type Prettify<T> = { [K in keyof T]: T[K] } & {};
+export type Prettify<T> = { [K in keyof T]: T[K] } & {};
 
 /**
  * Represents a ISO 3166-1 alpha-2 country code (e.g., 'US', 'IN').
@@ -44,36 +45,6 @@ export type LocaleCode = keyof typeof OperationalLocale;
 export type LanguageCode = keyof typeof OperationalLanguage;
 
 
-/**
- * Represents a pricing tier based on a minimum purchase quantity.
- */
-export type PriceTier = {
-  /** The minimum quantity required to achieve this unit price. */
-  minQuantity: number;
-  /** The price per unit at this quantity tier. */
-  unitPrice: number;
-  currency: CurrencyCode;
-  country: CountryCode;
-};
-
-
-/**
- * Represents the base price information for a single unit in a specific country.
- */
-export type BasePrice = {
-  /** Enforces that this price is for a single unit. */
-  minQuantity: 1;
-  /** The price per unit. */
-  unitPrice: number;
-  currency: CurrencyCode;
-  country: CountryCode;
-};
-
-
-export type BasePriceList = BasePrice[];
-export type PriceTierList = PriceTier[];
-
-
 export type Color = {
   name: string;
   hex?: string;
@@ -86,12 +57,8 @@ export type Color = {
 export type ISODateTimeUTC = string;
 
 export type RegionalPrice = {
-  country: CountryCode;
-  currency: CurrencyCode;
-  price: number;
+  [country in CountryCode]?: PriceData;
 };
-
-export type RegionalPriceList = RegionalPrice[];
 
 export interface ShippingDetails {
   courierName: string;

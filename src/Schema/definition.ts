@@ -1,4 +1,5 @@
 import { OperationalCountry, OperationalCountryCurrency, OperationalLanguage, OperationalLocale } from "../Classes/Enum";
+import ProductModel from "../Classes/Product";
 
 export default {
   "$id": "standards",
@@ -87,11 +88,7 @@ export default {
       },
       "productKey": {
         "type": "string",
-        "pattern": "^(?!\\s)(?!.*\\s$)[A-Z0-9-]{4,16}$"
-      },
-      "variantId": {
-          "type": "string",
-          "pattern": "^(?!\\s)(?!.*\\s$)[A-Z0-9-]{4,16}$"
+        "pattern": ProductModel.productKeyRegex.source
       },
       "firstName": { "$ref": "#/definitions/requiredText30" },
       "lastName": { "$ref": "#/definitions/text30" },

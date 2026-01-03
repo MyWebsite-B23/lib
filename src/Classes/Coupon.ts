@@ -1,6 +1,9 @@
+import Utils from "../Utils";
 import BaseModel, { BaseAttributes } from "./Base";
-import { CountryCode, ISODateTimeUTC, LocaleCode, LocalizedString, RegionalPrice, RegionalPriceList } from "./Common";
+import { CountryCode, CurrencyCode, ISODateTimeUTC, LocaleCode, LocalizedString, RegionalPrice } from "./Common";
 import { LocaleLanguageMap } from "./Enum";
+import { InvalidArgumentError } from "./Error";
+import PriceModel, { PriceData } from "./Price";
 
 export enum CouponType {
   COUPON = "coupon",
@@ -30,8 +33,8 @@ export type CouponAttribute = BaseAttributes & {
   customerId?: string;
   validFrom: ISODateTimeUTC;
   validTo: ISODateTimeUTC;
-  minCartValue: RegionalPriceList;
-  maxCartDiscount: RegionalPriceList;
+  minCartValue: RegionalPrice;
+  maxCartDiscount: RegionalPrice;
   discountMethod: CouponDiscountMethod;
   percentageValue?: number;
   applicableTo: ApplicableTo;
@@ -51,8 +54,12 @@ export default class CouponModel extends BaseModel {
   protected customerId?: string;
   protected validFrom: ISODateTimeUTC;
   protected validTo: ISODateTimeUTC;
-  protected minCartValue: RegionalPriceList;
-  protected maxCartDiscount: RegionalPriceList;
+  protected minCartValue: {
+    [country in CountryCode]?: PriceModel;
+  };
+  protected maxCartDiscount: {
+    [country in CountryCode]?: PriceModel;
+  };
   protected discountMethod: CouponDiscountMethod;
   protected percentageValue: number;
   protected applicableTo: ApplicableTo;
@@ -67,16 +74,32 @@ export default class CouponModel extends BaseModel {
     super(data, date);
 
     this.couponCode = data.couponCode;
-    this.name = { ...data.name };
-    this.description = { ...data.description };
+    this.name = Utils.deepClone(data.name);
+    this.description = Utils.deepClone(data.description);
     this.type = data.type;
     this.customerId = data.customerId;
     this.validFrom = data.validFrom && Date.parse(data.validFrom) ? new Date(data.validFrom).toISOString() : date.toISOString();
     this.validTo = data.validTo && Date.parse(data.validTo) ? new Date(data.validTo).toISOString() : date.toISOString();
-    this.minCartValue = data.minCartValue.map(price => ({ ...price }));
-    this.maxCartDiscount = data.maxCartDiscount.map(price => ({ ...price }));
+    this.minCartValue = (Object.keys(data.minCartValue) as CountryCode[]).reduce((acc, country) => {
+      const priceData = data.minCartValue[country] as PriceData;
+      if (priceData) {
+        acc[country] = new PriceModel(priceData);
+      }
+      return acc;
+    }, {} as { [country in CountryCode]?: PriceModel });
+    this.maxCartDiscount = (Object.keys(data.maxCartDiscount) as CountryCode[]).reduce((acc, country) => {
+      const priceData = data.maxCartDiscount[country] as PriceData;
+      if (priceData) {
+        acc[country] = new PriceModel(priceData);
+      }
+      return acc;
+    }, {} as { [country in CountryCode]?: PriceModel });
     this.discountMethod = data.discountMethod;
     this.percentageValue = data.percentageValue ?? 0;
+    if (this.percentageValue > 100) {
+      throw new InvalidArgumentError('Percentage value cannot be greater than 100');
+    }
+
     this.applicableTo = data.applicableTo;
     this.category = data.category;
   }
@@ -149,35 +172,36 @@ export default class CouponModel extends BaseModel {
    * Returns copies of the price objects.
    * @returns The full list of regional minimum cart values.
    */
-  getMinCartValue(): RegionalPriceList
+  getMinCartValue(): { [country in CountryCode]?: PriceModel }
+
   /**
    * Gets the minimum cart value required for the coupon for a specific country.
    * @param country - The country code to filter the minimum value for.
    * @returns The regional minimum cart value for the specified country, or undefined if not set for that country.
    */
-  getMinCartValue(country: CountryCode): RegionalPrice | undefined
-  getMinCartValue(country?: CountryCode){
-    if(country) {
-      return this.minCartValue.find(price => price.country === country);
+  getMinCartValue(country: CountryCode): PriceModel | undefined
+  getMinCartValue(country?: CountryCode) {
+    if (country) {
+      return this.minCartValue[country];
     }
     return this.minCartValue;
   }
 
-   /**
-   * Gets the list of maximum discount amounts allowed for the coupon across different regions.
-   * Returns copies of the price objects.
-   * @returns The full list of regional maximum discount caps.
+  /**
+  * Gets the list of maximum discount amounts allowed for the coupon across different regions.
+  * Returns copies of the price objects.
+  * @returns The full list of regional maximum discount caps.
+  */
+  getMaxCartDiscount(): { [country in CountryCode]?: PriceModel }
+  /**
+   * Gets the maximum discount amount allowed for the coupon for a specific country.
+   * @param country - The country code to filter the maximum discount for.
+   * @returns The regional maximum discount cap for the specified country, or undefined if not set for that country.
    */
-   getMaxCartDiscount(): RegionalPriceList
-   /**
-    * Gets the maximum discount amount allowed for the coupon for a specific country.
-    * @param country - The country code to filter the maximum discount for.
-    * @returns The regional maximum discount cap for the specified country, or undefined if not set for that country.
-    */
-  getMaxCartDiscount(country: CountryCode): RegionalPrice | undefined
-  getMaxCartDiscount(country?: CountryCode){
-    if(country) {
-      return this.maxCartDiscount.find(price => price.country === country);
+  getMaxCartDiscount(country: CountryCode): PriceModel | undefined
+  getMaxCartDiscount(country?: CountryCode) {
+    if (country) {
+      return this.maxCartDiscount[country];
     }
     return this.maxCartDiscount;
   }
@@ -208,32 +232,44 @@ export default class CouponModel extends BaseModel {
    */
   getDetails(): CouponData {
     return {
-        ...super.getDetails(),
-        couponCode: this.getCode(),
-        name: this.getName(),
-        description: this.getDescription(),
-        type: this.getType(),
-        customerId: this.getCustomerId(),
-        validFrom: this.getValidFrom(),
-        validTo: this.getValidTo(),
-        minCartValue: this.getMinCartValue(),
-        maxCartDiscount: this.getMaxCartDiscount(),
-        discountMethod: this.getDiscountMethod(),
-        percentageValue: this.getPercentageValue(),
-        applicableTo: this.getApplicableTo(),
-        category: this.getCategory(),
+      ...super.getDetails(),
+      couponCode: this.getCode(),
+      name: this.getName(),
+      description: this.getDescription(),
+      type: this.getType(),
+      customerId: this.getCustomerId(),
+      validFrom: this.getValidFrom(),
+      validTo: this.getValidTo(),
+      minCartValue: (Object.keys(this.getMinCartValue()) as CountryCode[]).reduce((acc, country) => {
+        const priceModel = this.getMinCartValue(country);
+        if (priceModel) {
+          acc[country] = priceModel.getDetails();
+        }
+        return acc;
+      }, {} as RegionalPrice),
+      maxCartDiscount: (Object.keys(this.getMaxCartDiscount()) as CountryCode[]).reduce((acc, country) => {
+        const priceModel = this.getMaxCartDiscount(country);
+        if (priceModel) {
+          acc[country] = priceModel.getDetails();
+        }
+        return acc;
+      }, {} as RegionalPrice),
+      discountMethod: this.getDiscountMethod(),
+      percentageValue: this.getPercentageValue(),
+      applicableTo: this.getApplicableTo(),
+      category: this.getCategory(),
     };
   }
 
-   /**
-   * Checks if the coupon is currently active based on its validity dates.
-   * @returns True if the coupon is currently within its validity period, false otherwise.
-   */
+  /**
+  * Checks if the coupon is currently active based on its validity dates.
+  * @returns True if the coupon is currently within its validity period, false otherwise.
+  */
   isActive(): boolean {
     return new Date(this.validFrom) <= new Date() && new Date(this.validTo) >= new Date();
   }
 
-  
+
   /**
    * Checks if the coupon is applicable to a customer based on their status (e.g., first-time buyer).
    * @param ftbCustomer - A boolean indicating whether the customer is a first-time buyer.
@@ -241,5 +277,67 @@ export default class CouponModel extends BaseModel {
    */
   isApplicableTo(ftbCustomer: boolean): boolean {
     return this.applicableTo === ApplicableTo.ALL || (this.applicableTo === ApplicableTo.FTB && ftbCustomer);
+  }
+
+      /**
+   * Calculates the discount value for a given coupon based on the current container state.
+   * Returns 0 if the coupon is invalid, expired, or not applicable based on cart value or target category.
+   * @param cartValue - The cart subtotal as a PriceModel.
+   * @param shippingCost - The cart shipping cost.
+   * @param country - The country code.
+   * @param currency - The currency code.
+   * @returns The calculated discount amount (rounded according to country rules).
+   */
+  public calculateApplicableCouponDiscount(cartValue: PriceModel, shippingCost: PriceModel, country: CountryCode, currency: CurrencyCode, checkExpiry: boolean = true): PriceModel {
+    let zeroDiscount: PriceModel = new PriceModel({ amount: 0, currency });
+    let potentialDiscount: PriceModel;
+
+    // 1. Basic validation (active)
+    if (checkExpiry && !this.isActive()) {
+      return zeroDiscount;
+    }
+
+    // 2. Check regional requirements (min cart value, max discount)
+    const minCartValueReq = this.getMinCartValue(country);
+    const maxCartDiscountCap = this.getMaxCartDiscount(country);
+
+    // Ensure minCartValueReq exists and subtotal meets the requirement
+    if (!minCartValueReq || minCartValueReq.compareTo(cartValue) > 0) {
+      return zeroDiscount;
+    }
+
+    // Ensure maxCartDiscountCap exists and is non-negative (price-model throws error when amount < 0)
+    if (!maxCartDiscountCap) {
+      return zeroDiscount;
+    }
+
+    // 3. Calculate potential discount based on method and category
+    const couponCategory = this.getCategory();
+    const discountMethod = this.getDiscountMethod();
+    // Determine the value the coupon applies to (shipping cost or subtotal)
+    const targetValue = couponCategory === CouponCategory.SHIPPING ? shippingCost : cartValue;
+
+    // No discount if the target value is zero or less
+    if (targetValue.getAmount() <= 0) return zeroDiscount;
+
+    switch (discountMethod) {
+      case CouponDiscountMethod.FLAT:
+        // Flat discount is capped by the target value itself and the max discount cap
+        const flatAmount = maxCartDiscountCap; // Use cap as the flat amount source? Or coupon.value? Needs clarification. Assuming cap IS the flat amount here.
+        potentialDiscount = targetValue.min(flatAmount);
+        break;
+      case CouponDiscountMethod.PERCENTAGE:
+        // Calculate percentage discount based on the target value
+        potentialDiscount = targetValue.multiply(this.getPercentageValue() / 100).round();
+        break;
+      default:
+        // Unknown discount method
+        return zeroDiscount;
+    }
+
+    // 4. Apply maximum discount cap to the calculated potential discount
+    const finalDiscount = potentialDiscount.min(maxCartDiscountCap);
+
+    return finalDiscount;
   }
 }
