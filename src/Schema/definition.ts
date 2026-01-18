@@ -108,6 +108,7 @@ export default {
           "amount": { "type": "number", "minimum": 0 },
           "currency": { "$ref": "#/definitions/currency" }
         },
+        "additionalProperties": false,
         "required": ["amount", "currency"]
       },
       "color": {
@@ -116,13 +117,32 @@ export default {
               "name": {
                   "type": "string"
               },
-              "hexCode": {
+              "hex": {
                   "type": "string"
               }
           },
+          "additionalProperties": false,
           "required": [
               "name"
           ]
+      },
+      "attributeValue": {
+          "oneOf": [
+              { "type": "string" },
+              {
+                  "$ref": "#/definitions/color"
+              }
+          ]
+      },
+      "selectionAttributes": {
+          "type": "object",
+          "properties": {
+              "color": { "$ref": "#/definitions/color" }
+          },
+          "required": ["color"],
+          "additionalProperties": {
+              "$ref": "#/definitions/attributeValue"
+          }
       },
       "firstName": { "$ref": "#/definitions/requiredText30" },
       "lastName": { "$ref": "#/definitions/text30" },

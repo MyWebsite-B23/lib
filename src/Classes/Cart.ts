@@ -105,10 +105,10 @@ export default class CartModel extends BaseShoppingContainerModel {
    */
   public addLineItem(newLineItem: LineItemModel) {
     const productKey = newLineItem.getProductKey();
-    const selectionAttribute = newLineItem.getSelectionAttribute();
-    const selectionAttributeKey = ProductModel.generateSelectionAttributesKey(selectionAttribute);
+    const selectionAttributes = newLineItem.getSelectionAttributes();
+    const selectionAttributeKey = ProductModel.generateSelectionAttributesKey(selectionAttributes);
     let index = this.lineItems.findIndex(
-      (item) => item.getProductKey() === productKey && ProductModel.generateSelectionAttributesKey(item.getSelectionAttribute()) === selectionAttributeKey
+      (item) => item.getProductKey() === productKey && ProductModel.generateSelectionAttributesKey(item.getSelectionAttributes()) === selectionAttributeKey
     );
 
     if (index >= 0) {

@@ -15,6 +15,7 @@ export type PriceAttributes = {
 export type PriceData = PriceAttributes;
 
 export default class PriceModel {
+  #kind: string;
   protected amount: number;
   protected currency: CurrencyCode;
 
@@ -25,6 +26,7 @@ export default class PriceModel {
    * @throws {Error} If price is negative or country/currency mapping is missing.
    */
   constructor(data: PriceAttributes) {
+    this.#kind = "PriceModel";
     if (data.amount < 0) {
       throw new InvalidPriceAmountError("Amount cannot be negative.");
     }
@@ -35,6 +37,16 @@ export default class PriceModel {
 
     this.amount = data.amount;
     this.currency = data.currency;
+  }
+
+  get kind() {
+    return this.#kind;
+  }
+
+  static isPriceModel(obj: unknown): obj is PriceModel {
+    return typeof obj === "object" &&
+    obj !== null &&
+    (obj as any).kind === "PriceModel";
   }
 
   /**
@@ -98,7 +110,7 @@ export default class PriceModel {
    * ```
    */
   public compareTo(priceModel: PriceModel): number {
-    if (!(priceModel instanceof PriceModel)) {
+    if (!PriceModel.isPriceModel(priceModel)) {
       throw new InvalidArgumentError("Must be a PriceModel instance.");
     } else if (this.currency !== priceModel.getCurrency()) {
       throw new CurrencyMismatchError("Cannot compare prices in different currencies.");
@@ -108,7 +120,7 @@ export default class PriceModel {
   }
 
   public add(priceModel: PriceModel): PriceModel {
-    if (!(priceModel instanceof PriceModel)) {
+    if (!PriceModel.isPriceModel(priceModel)) {
       throw new InvalidArgumentError("Must be a PriceModel instance.");
     } else if (this.currency !== priceModel.getCurrency()) {
       throw new CurrencyMismatchError("Cannot add prices in different currencies.");
@@ -121,7 +133,7 @@ export default class PriceModel {
   }
 
   public subtract(priceModel: PriceModel): PriceModel {
-    if (!(priceModel instanceof PriceModel)) {
+    if (!PriceModel.isPriceModel(priceModel)) {
       throw new InvalidArgumentError("Must be a PriceModel instance.");
     } else if (this.currency !== priceModel.getCurrency()) {
       throw new CurrencyMismatchError("Cannot subtract prices in different currencies.");
@@ -134,7 +146,7 @@ export default class PriceModel {
   }
 
   public multiply(factor: number | PriceModel): PriceModel {
-    if (factor instanceof PriceModel) {
+    if (PriceModel.isPriceModel(factor)) {
       if (this.currency !== factor.getCurrency()) {
         throw new CurrencyMismatchError("Cannot multiply prices in different currencies.");
       }
@@ -153,7 +165,7 @@ export default class PriceModel {
   }
 
   public divide(divisor: number | PriceModel): PriceModel {
-    if (divisor instanceof PriceModel) {
+    if (PriceModel.isPriceModel(divisor)) {
       if (this.currency !== divisor.getCurrency()) {
         throw new CurrencyMismatchError("Cannot divide prices in different currencies.");
       }
@@ -177,7 +189,7 @@ export default class PriceModel {
     }
 
     return priceModels.reduce((minPrice, currentPrice) => {
-      if (!(currentPrice instanceof PriceModel)) {
+      if (!PriceModel.isPriceModel(currentPrice)) {
         throw new InvalidArgumentError("Must be a PriceModel instance.");
       } else if (minPrice.getCurrency() !== currentPrice.getCurrency()) {
         throw new CurrencyMismatchError("Cannot compare prices in different currencies.");
@@ -193,7 +205,7 @@ export default class PriceModel {
     }
 
     return priceModels.reduce((maxPrice, currentPrice) => {
-      if (!(currentPrice instanceof PriceModel)) {
+      if (!PriceModel.isPriceModel(currentPrice)) {
         throw new InvalidArgumentError("Must be a PriceModel instance.");
       } else if (maxPrice.getCurrency() !== currentPrice.getCurrency()) {
         throw new CurrencyMismatchError("Cannot compare prices in different currencies.");
@@ -244,6 +256,14 @@ export default class PriceModel {
    */
   public getFormattedString() {
     return PriceModel.getFormattedString(this.amount, this.currency);
+  }
+
+  /**
+   * Uses the static `PriceModel.getFormattedString` method for the actual formatting.
+   * @returns The formatted price string according to locale rules.
+   */
+  toString() {
+    return this.getFormattedString();
   }
 
 

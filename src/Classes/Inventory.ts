@@ -4,7 +4,7 @@ import { CountryCode } from "./Common";
 import ProductModel, { SelectionAttributes } from "./Product";
 
 export type StockData = {
-  selectionAttribute: SelectionAttributes;
+  selectionAttributes: SelectionAttributes;
   size: string;
   available: number;
   country: CountryCode;
@@ -24,11 +24,11 @@ export class InventoryModel extends BaseModel {
    * Creates an instance of InventoryModel.
    * @param data - The initial inventory attributes.
    */
-  constructor(data: InventoryAttributes) {
-    super(data);
+  constructor(data: InventoryAttributes, date: Date = new Date()) {
+    super(data, date);
     this.productKey = data.productKey;
     this.stocks = data.stocks.map(item => ({
-      selectionAttribute: Utils.deepClone(item.selectionAttribute),
+      selectionAttributes: Utils.deepClone(item.selectionAttributes),
       size: item.size,
       available: item.available,
       country: item.country
@@ -45,15 +45,15 @@ export class InventoryModel extends BaseModel {
 
   /**
    * Retrieves stock information for a specific size and country.
-   * @param selectionAttribute - The selection attributes to filter by.
+   * @param selectionAttributes - The selection attributes to filter by.
    * @param size - The size to filter by.
    * @param country - The country to filter by.
    * @returns An array of StockData objects matching the specified criteria.
    */
-  getStockData(selectionAttribute?: SelectionAttributes, size?: string, country?: CountryCode): StockData[] {
-    let selectionAttributeKey = selectionAttribute ? ProductModel.generateSelectionAttributesKey(selectionAttribute) : undefined;
+  getStockData(selectionAttributes?: SelectionAttributes, size?: string, country?: CountryCode): StockData[] {
+    let selectionAttributeKey = selectionAttributes ? ProductModel.generateSelectionAttributesKey(selectionAttributes) : undefined;
     return this.stocks.filter(item => {
-      if (selectionAttributeKey && ProductModel.generateSelectionAttributesKey(item.selectionAttribute) !== selectionAttributeKey) return false;
+      if (selectionAttributeKey && ProductModel.generateSelectionAttributesKey(item.selectionAttributes) !== selectionAttributeKey) return false;
       if (size && item.size !== size) return false;
       if (country && item.country !== country) return false;
       return true;

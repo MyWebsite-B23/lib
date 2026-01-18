@@ -2,7 +2,7 @@ import Utils from "../Utils";
 import BaseModel, { BaseAttributes } from "./Base";
 import { Color, LocalizedString, CountryCode, LocaleCode, LocalizedValue, Prettify } from './Common';
 import { GenderCategory, ImageCategory, LocaleLanguageMap } from "./Enum";
-import { SelectionAttributeParseError } from "./Error";
+import { DuplicateSelectionAttributeError, DuplicateSizeError, SelectionAttributeParseError } from "./Error";
 import ImageInfoModel, { ImageInfoData } from "./ImageInfo";
 import { TieredPriceModel, TieredPriceAttributes, TieredPriceData } from "./TieredPrice";
 
@@ -101,6 +101,10 @@ export default class ProductModel extends BaseModel {
    * @returns A string key representing the unique attribute combination.
    */
   static generateSelectionAttributesKey(selectionAttributes: SelectionAttributes): string {
+    if (typeof selectionAttributes !== 'object') {
+      throw new SelectionAttributeParseError('Selection attributes must be an object');
+    }
+
     const sortedKeys = Object.keys(selectionAttributes)
       .filter(key => selectionAttributes[key] !== undefined && key.toLowerCase() !== 'size')
       .sort()
@@ -110,7 +114,7 @@ export default class ProductModel extends BaseModel {
         return `${key}:c+${(selectionAttributes[key] as Color).name}`;
       }
       return `${key}:${selectionAttributes[key]}`;
-    }).join('|');
+    }).join('|').toLowerCase();
   }
 
   /**
@@ -165,14 +169,27 @@ export default class ProductModel extends BaseModel {
     this.specifications = Utils.deepClone(data.specifications);
     this.categories = Utils.deepClone(data.categories);
 
-    this.variants = (data.variants || []).map(variant => ({
-      sku: variant.sku,
-      selectionAttributes: variant.selectionAttributes,
-      images: {
-        primary: new ImageInfoModel(variant.images.primary),
-        gallery: (variant.images.gallery || []).map(image => new ImageInfoModel(image))
+    const uniqueSelectionAttributes = new Set<string>();
+    this.variants = (data.variants || []).map(variant => {
+      if (!variant.selectionAttributes || typeof variant.selectionAttributes !== 'object') {
+        throw new SelectionAttributeParseError('Selection attributes are required');
       }
-    }));
+
+      this.checkSelectionAttributes(variant.selectionAttributes);
+      const key = ProductModel.generateSelectionAttributesKey(variant.selectionAttributes);
+      if (uniqueSelectionAttributes.has(key)) {
+        throw new DuplicateSelectionAttributeError(key);
+      }
+      uniqueSelectionAttributes.add(key);
+      return {
+        sku: variant.sku,
+        selectionAttributes: variant.selectionAttributes,
+        images: {
+          primary: new ImageInfoModel(variant.images.primary),
+          gallery: (variant.images.gallery || []).map(image => new ImageInfoModel(image))
+        }
+      };
+    });
 
     this.isActive = data.isActive;
     this.searchTags = data.searchTags ? Utils.deepClone(data.searchTags) : { en: [] };
@@ -287,6 +304,21 @@ export default class ProductModel extends BaseModel {
 
 
   /**
+   * Gets the variant-specific attributes (color, sizes). Returns copies.
+   * @returns Product Attributes.
+   */
+  getVariants(): VariantModel[] {
+    return this.variants.map(variant => ({
+      sku: variant.sku,
+      selectionAttributes: variant.selectionAttributes,
+      images: {
+        primary: variant.images.primary,
+        gallery: variant.images.gallery
+      }
+    }));
+  }
+
+  /**
    * Gets the images for a specific selection attribute combination.
    * @param selectionAttributes - The selection attributes to search for.
    * @returns The matching image set or null if not found.
@@ -355,8 +387,8 @@ export default class ProductModel extends BaseModel {
    * @param locale - The desired locale code.
    * @returns The ProductSpecification object for the specified locale, or undefined if not found.
    */
-  getSpecifications(locale: LocaleCode): ProductSpecification | undefined
-  getSpecifications(locale?: LocaleCode): LocalizedValue<ProductSpecification> | ProductSpecification | undefined {
+  getSpecifications(locale: LocaleCode): ProductSpecification
+  getSpecifications(locale?: LocaleCode): LocalizedValue<ProductSpecification> | ProductSpecification {
     if (locale) {
       return Utils.deepClone(this.specifications[locale] ?? this.specifications[LocaleLanguageMap[locale]] ?? this.specifications.en);
     } else {
@@ -374,8 +406,8 @@ export default class ProductModel extends BaseModel {
    * @param locale - The desired locale code.
    * @returns The array of search tags for the specified locale, or undefined if not found.
    */
-  getSearchTags(locale: LocaleCode): string[] | undefined
-  getSearchTags(locale?: LocaleCode): LocalizedValue<string[]> | string[] | undefined {
+  getSearchTags(locale: LocaleCode): string[]
+  getSearchTags(locale?: LocaleCode): LocalizedValue<string[]> | string[] {
     if (locale) {
       return Utils.deepClone(this.searchTags[locale] ?? this.searchTags[LocaleLanguageMap[locale]] ?? this.searchTags.en);
     } else {
@@ -420,6 +452,48 @@ export default class ProductModel extends BaseModel {
     };
   }
 
+  /**
+   * Checks if the provided selection attributes are valid for the product.
+   * @param selectionAttributes The selection attributes to validate.
+   * @throws {SelectionAttributeParseError} If the selection attributes are invalid.
+   */
+  checkSelectionAttributes(selectionAttributes: SelectionAttributes): void {
+    if (!selectionAttributes || typeof selectionAttributes !== 'object') {
+      throw new SelectionAttributeParseError('Selection attributes are required');
+    }
+
+    Object.keys(this.attributes).forEach(key => {
+      if(key.toLowerCase() === 'size') return;
+      
+      const allowedAttributeValues = this.attributes[key];
+      const providedValue = selectionAttributes[key];
+
+      if (providedValue === undefined) {
+        throw new SelectionAttributeParseError(`Selection attribute '${key}' is missing`);
+      }
+
+      if (typeof allowedAttributeValues === 'string') {
+        if (typeof providedValue !== 'string' || allowedAttributeValues !== providedValue) {
+          throw new SelectionAttributeParseError(`Selection attribute '${key}' is invalid`);
+        }
+      } else if (Array.isArray(allowedAttributeValues)) {
+        if (allowedAttributeValues.length > 0 && typeof allowedAttributeValues[0] === 'string') {
+          if (typeof providedValue !== 'string' || !(allowedAttributeValues as string[]).includes(providedValue)) {
+            throw new SelectionAttributeParseError(`Selection attribute '${key}' is invalid`);
+          }
+        } else {
+          // Color validation
+          if (
+            typeof providedValue !== 'object' ||
+            !('name' in providedValue) ||
+            (allowedAttributeValues as Color[]).findIndex(c => c.name === (providedValue as Color).name) < 0
+          ) {
+            throw new SelectionAttributeParseError(`Selection attribute '${key}' is invalid`);
+          }
+        }
+      }
+    });
+  }
 
   /**
    * Validates if the provided selection attributes exist for this product.

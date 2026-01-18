@@ -375,7 +375,7 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
 
     couponDiscounts.forEach(([code, totalDiscount]) => {
       const coupon = this.coupons.find(c => c.getCode() === code);
-      if (!coupon) return;
+      if (!coupon || totalDiscount.isZero()) return;
 
       const validItems = this.lineItems
         .filter(li => li.getState() !== LineItemState.CANCELLED && !li.getTotal().subtotal.isZero())

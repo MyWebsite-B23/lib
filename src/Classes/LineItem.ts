@@ -5,7 +5,7 @@ import { LineItemState, LocaleLanguageMap, TaxCategory, TaxSystem } from "./Enum
 import ImageInfoModel, { ImageInfoData } from "./ImageInfo";
 import PriceModel, { PriceData } from "./Price";
 import ProductModel, { ProductSelectionAttributes, ProductSpecification, SelectionAttributes } from "./Product";
-import { TaxRuleModel, TaxSlabs } from "./TaxRule";
+import { TaxRuleModel, TaxSlabModel, TaxSlabs } from "./TaxRule";
 import { TieredPriceData, TieredPriceModel } from "./TieredPrice";
 import {
   DuplicateSizeError,
@@ -13,8 +13,10 @@ import {
   ProductInactiveError,
   SizeMismatchError,
   PricingNotFoundError,
-  InvalidTaxRuleError
+  InvalidTaxRuleError,
+  InvalidLineItemStateError
 } from "./Error";
+import { CustomFieldAttributes, CustomFieldModel } from "./Base";
 
 export type SubItem = {
   size: string | 'ONESIZE';
@@ -43,11 +45,11 @@ export type LineItemTotals = {
   grandTotal: PriceData;
 };
 
-export type LineItemAttributes = {
+export type LineItemAttributes = CustomFieldAttributes & {
   id: string;
 
   productKey: string;
-  selectionAttribute: SelectionAttributes;
+  selectionAttributes: SelectionAttributes;
 
   name: LocalizedString;
   specifications: LocalizedValue<ProductSpecification>;
@@ -66,10 +68,10 @@ export type LineItemData = Required<LineItemAttributes>;
 /**
  * Represents a line item within a shopping cart.
  */
-export default class LineItemModel {
+export default class LineItemModel extends CustomFieldModel {
   protected id: string;
   protected productKey: string;
-  protected selectionAttribute: SelectionAttributes;
+  protected selectionAttributes: SelectionAttributes;
 
   protected name: LocalizedString;
   protected specifications: LocalizedValue<ProductSpecification>;
@@ -83,7 +85,7 @@ export default class LineItemModel {
       taxRuleId: string;
       taxSystem: TaxSystem;
       country: CountryCode;
-      taxSlabs: TaxSlabs;
+      taxSlabs: TaxSlabModel[];
       rate: number;
     };
   };
@@ -104,9 +106,10 @@ export default class LineItemModel {
    * @param data - The initial line item attributes.
    */
   constructor(data: LineItemAttributes) {
+    super(data);
     this.id = data.id;
     this.productKey = data.productKey;
-    this.selectionAttribute = Utils.deepClone(data.selectionAttribute);
+    this.selectionAttributes = Utils.deepClone(data.selectionAttributes);
 
     this.name = Utils.deepClone(data.name);
     this.specifications = Utils.deepClone(data.specifications);
@@ -130,7 +133,11 @@ export default class LineItemModel {
         taxSystem: data.pricing.tax.taxSystem,
         country: data.pricing.tax.country,
         rate: data.pricing.tax.rate,
-        taxSlabs: Utils.deepClone(data.pricing.tax.taxSlabs),
+        taxSlabs: data.pricing.tax.taxSlabs.map(s => ({
+          rate: s.rate,
+          minUnitPrice: new PriceModel(s.minUnitPrice),
+          maxUnitPrice: s.maxUnitPrice ? new PriceModel(s.maxUnitPrice) : undefined,
+        })),
       },
     }
 
@@ -171,8 +178,8 @@ export default class LineItemModel {
    * Gets the selection attributes (e.g., size, color) for this line item.
    * @returns A copy of the selection attributes object.
    */
-  getSelectionAttribute(): SelectionAttributes {
-    return Utils.deepClone(this.selectionAttribute);
+  getSelectionAttributes(): SelectionAttributes {
+    return Utils.deepClone(this.selectionAttributes);
   }
 
   /**
@@ -251,7 +258,7 @@ export default class LineItemModel {
         taxSystem: this.pricing.tax.taxSystem,
         country: this.pricing.tax.country,
         rate: this.pricing.tax.rate,
-        taxSlabs: Utils.deepClone(this.pricing.tax.taxSlabs),
+        taxSlabs: this.pricing.tax.taxSlabs,
       }
     };
   }
@@ -292,7 +299,7 @@ export default class LineItemModel {
     return {
       id: this.getId(),
       productKey: this.getProductKey(),
-      selectionAttribute: this.getSelectionAttribute(),
+      selectionAttributes: this.getSelectionAttributes(),
       name: this.getName(),
       specifications: this.getSpecifications(),
       primaryImage: this.getImage().getDetails(),
@@ -301,7 +308,17 @@ export default class LineItemModel {
         unitPrice: this.getPricing().unitPrice.getDetails(),
         tierPricing: this.getPricing().tierPricing.getDetails(),
         taxCategory: this.getPricing().taxCategory,
-        tax: this.getPricing().tax
+        tax: {
+          taxRuleId: this.getPricing().tax.taxRuleId,
+          taxSystem: this.getPricing().tax.taxSystem,
+          country: this.getPricing().tax.country,
+          rate: this.getPricing().tax.rate,
+          taxSlabs: this.getPricing().tax.taxSlabs.map(s => ({
+            rate: s.rate,
+            minUnitPrice: s.minUnitPrice.getDetails(),
+            maxUnitPrice: s.maxUnitPrice ? s.maxUnitPrice.getDetails() : undefined,
+          })),
+        }
       },
       state: this.getState(),
       total: {
@@ -316,7 +333,8 @@ export default class LineItemModel {
           ])
         ),
         grandTotal: this.getTotal().grandTotal.getDetails(),
-      }
+      },
+      customFields: this.getAllCustomFields()
     };
   }
 
@@ -338,7 +356,7 @@ export default class LineItemModel {
         this.subItems.push(subItem);
       }
     })
-    this.subItems = this.subItems.filter(sub => sub.quantity >= 0);
+    this.subItems = this.subItems.filter(sub => sub.quantity > 0);
     this.calculateTotals();
   }
 
@@ -351,7 +369,7 @@ export default class LineItemModel {
    * @throws {Error} If product mismatch, inactive, size mismatch, or pricing missing.
    */
   public updateProductData(product: ProductModel, cartCountry: CountryCode, cartCurrency: CurrencyCode): void {
-    if (this.productKey !== product.getKey() || !product.validateSelectionAttribute(this.selectionAttribute)) {
+    if (this.productKey !== product.getKey() || !product.validateSelectionAttribute(this.selectionAttributes)) {
       throw new ProductMismatchError();
     } else if (!product.getIsActive()) {
       throw new ProductInactiveError();
@@ -369,7 +387,7 @@ export default class LineItemModel {
     }
     this.name = product.getName();
     this.specifications = product.getSpecifications();
-    this.primaryImage = product.getImages(this.selectionAttribute).primary;
+    this.primaryImage = product.getImages(this.selectionAttributes).primary;
 
     const quantity = this.subItems.reduce((sum, s) => sum + s.quantity, 0);
     const { unitPrice } = productPricing.getApplicableTier(quantity);
@@ -408,7 +426,11 @@ export default class LineItemModel {
       throw new InvalidTaxRuleError();
     }
 
-    const taxableUnitPrice = this.total.taxableAmount.divide(this.total.quantity);
+    const taxableUnitPrice = this.total.quantity > 0 ? 
+      this.total.taxableAmount.divide(this.total.quantity) 
+      : 
+      this.total.taxableAmount.zero();
+
     this.pricing.tax = {
       taxRuleId: taxRule.getTaxRuleId(),
       taxSystem: taxRule.getTaxSystem(),
@@ -425,11 +447,24 @@ export default class LineItemModel {
   public calculateTotals(): void {
     const zero = this.pricing.unitPrice.zero();
     const totalQuantity = this.subItems.reduce((sum, s) => sum + s.quantity, 0);
+
+    if (this.state === LineItemState.CANCELLED) {
+      this.total = {
+        quantity: 0,
+        subtotal: zero,
+        taxableAmount: zero,
+        taxTotal: zero,
+        discounts: {},
+        grandTotal: zero
+      };
+      return;
+    }
+
     const { unitPrice } = this.pricing.tierPricing.getApplicableTier(totalQuantity);
     const subTotal = unitPrice.multiply(totalQuantity);
     const discounts = Object.values(this.total.discounts).reduce((sum, s) => sum.add(s), zero);
     const taxableAmount = subTotal.subtract(discounts);
-    const unitTaxbleAmount = taxableAmount.divide(totalQuantity);
+    const unitTaxbleAmount = totalQuantity > 0 ? taxableAmount.divide(totalQuantity) : zero;
     const taxRate = TaxRuleModel.getApplicableTaxRate(unitTaxbleAmount, this.pricing.tax.taxSlabs);
     const taxTotal = taxableAmount.multiply(taxRate).round();
     const grandTotal = subTotal.subtract(discounts).add(taxTotal);
@@ -445,6 +480,20 @@ export default class LineItemModel {
   }
 
   /**
+   * Updates the line item's state.
+   * @param newState 
+   */
+  public updateState(newState: LineItemState): void {
+    if(this.state in LineItemState) {
+      if (this.state !== newState) {
+        this.state = newState;
+      }
+    } else {
+      throw new InvalidLineItemStateError(newState);
+    }
+  }
+
+  /**
    * Resets the line item's properties to their default empty or initial state.
    * Useful for clearing out line item data without creating a new instance.
    * Recalculates total quantity and price total afterwards (which will be zero).
@@ -453,7 +502,7 @@ export default class LineItemModel {
     const zero = this.pricing.unitPrice.zero()
     this.id = '';
     this.productKey = '';
-    this.selectionAttribute = { color: { name: '' } };
+    this.selectionAttributes = { color: { name: '' } };
     this.name = { en: '' };
     this.primaryImage = new ImageInfoModel({ sources: { original: '' } });
     this.subItems = [];

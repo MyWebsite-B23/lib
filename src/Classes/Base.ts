@@ -1,8 +1,46 @@
 import { AuthType } from "../Auth";
-import { ISODateTimeUTC } from "./Common";
+import { ISODateTimeUTC, Prettify } from "./Common";
 
 export interface CustomFields {
   [key: string]: any;
+}
+
+export type CustomFieldAttributes = {
+  customFields?: CustomFields;
+}
+
+export class CustomFieldModel {
+  protected customFields: CustomFields;
+  constructor(data: CustomFieldAttributes, date: Date = new Date()) {
+    this.customFields = { ...data.customFields };
+  }
+
+  /**
+   * Retrieves the value of a specific custom field.
+   * @param fieldName - The name (key) of the custom field to retrieve.
+   * @returns The value of the custom field, or null if the field does not exist.
+   */
+  getCustomField(fieldName: string): any {
+    return this.customFields[fieldName] ?? null;
+  }
+
+  /**
+   * Sets the value of a specific custom field.
+   * Also updates the modification timestamp and increments the version.
+   * @param fieldName - The name (key) of the custom field to set.
+   * @param value - The value to assign to the custom field.
+   */
+  setCustomField(fieldName: string, value: any): void {
+    this.customFields[fieldName] = value;
+  }
+
+  /**
+   * Retrieves a shallow copy of all custom fields associated with the instance.
+   * @returns An object containing all custom fields.
+   */
+  getAllCustomFields(): CustomFields {
+    return { ...this.customFields };
+  }
 }
 
 export type ModifiedBy = {
@@ -12,13 +50,12 @@ export type ModifiedBy = {
   lambdaName?: string;
 }
 
-export type BaseAttributes = {
-  customFields?: CustomFields;
+export type BaseAttributes = Prettify<CustomFieldAttributes & {
   version?: number;
   createdAt?: ISODateTimeUTC;
   modifiedAt?: ISODateTimeUTC;
   modifiedBy?: ModifiedBy;
-};
+}>;
 
 export type BaseData = Required<BaseAttributes>;
 
@@ -26,8 +63,7 @@ export type BaseData = Required<BaseAttributes>;
  * Provides common foundational properties and methods for other data models.
  * Handles tracking of custom fields, versioning, and timestamps.
  */
-export default class BaseModel {
-  protected customFields: CustomFields;
+export default class BaseModel extends CustomFieldModel {
   protected version: number;
   protected createdAt: ISODateTimeUTC;
   protected modifiedAt: ISODateTimeUTC;
@@ -40,7 +76,7 @@ export default class BaseModel {
    * @param date - Optional date object to use for default timestamps (defaults to current time).
    */
   constructor(data: BaseAttributes, date: Date = new Date()) {
-    this.customFields = { ...data.customFields };
+    super(data);
     this.version = data.version ?? 1;
     this.createdAt = data.createdAt && !isNaN(Date.parse(data.createdAt))
       ?
@@ -128,32 +164,5 @@ export default class BaseModel {
       requestId,
       lambdaName,
     };
-  }
-
-  /**
-   * Retrieves the value of a specific custom field.
-   * @param fieldName - The name (key) of the custom field to retrieve.
-   * @returns The value of the custom field, or null if the field does not exist.
-   */
-  getCustomField(fieldName: string): any {
-    return this.customFields[fieldName] ?? null;
-  }
-
-  /**
-   * Sets the value of a specific custom field.
-   * Also updates the modification timestamp and increments the version.
-   * @param fieldName - The name (key) of the custom field to set.
-   * @param value - The value to assign to the custom field.
-   */
-  setCustomField(fieldName: string, value: any): void {
-    this.customFields[fieldName] = value;
-  }
-
-  /**
-   * Retrieves a shallow copy of all custom fields associated with the instance.
-   * @returns An object containing all custom fields.
-   */
-  getAllCustomFields(): CustomFields {
-    return { ...this.customFields };
   }
 }

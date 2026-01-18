@@ -24,18 +24,23 @@ const Utils = {
     return uuidv4();
   },
 
-  generateSearchId: (key: string, selectionAttribute: SelectionAttributes) => {
-    return `${key}#${ProductModel.generateSelectionAttributesKey(selectionAttribute)}`;
+  generateSearchId: (key: string, selectionAttributes: SelectionAttributes) => {
+    return `${key}#${ProductModel.generateSelectionAttributesKey(selectionAttributes)}`;
   },
 
   getKeyfromSearchId: (searchId: string) => {
-    const [key, selectionAttribute] = searchId.split('#');
+    const [key, selectionAttributesKey] = searchId.split('#');
     return {
       key,
-      selectionAttribute
+      selectionAttributes: ProductModel.parseSelectionAttributesKey(selectionAttributesKey)
     }
   },
 
+  /**
+   * Deep clones an object using `structuredClone`. Don't use this on a class instance.
+   * @param obj - The object to clone.
+   * @returns A deep clone of the object.
+   */
   deepClone<T>(obj: T): T {
     return structuredClone(obj);
   }

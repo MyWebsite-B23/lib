@@ -5,10 +5,24 @@ export class LineItemNotFoundError extends Error {
     }
 }
 
+export class InvalidLineItemStateError extends Error {
+    constructor(state: string) {
+        super(`Invalid line item state: ${state}`);
+        this.name = 'InvalidLineItemStateError';
+    }
+}
+
 export class DuplicateSizeError extends Error {
     constructor(size: string) {
         super(`Duplicate size found: ${size}`);
         this.name = 'DuplicateSizeError';
+    }
+}
+
+export class DuplicateSelectionAttributeError extends Error {
+    constructor(attribute: string) {
+        super(`Duplicate selection attribute found: ${attribute}`);
+        this.name = 'DuplicateSelectionAttributeError';
     }
 }
 
