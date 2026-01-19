@@ -301,12 +301,12 @@ export default class CouponModel extends BaseModel {
     const minCartValueReq = this.getMinCartValue(country);
     const maxCartDiscountCap = this.getMaxCartDiscount(country);
 
-    // Ensure minCartValueReq exists and subtotal meets the requirement
+    // If minCartValueReq is not set or the cart value is less than the minimum required, return zero discount
     if (!minCartValueReq || minCartValueReq.compareTo(cartValue) > 0) {
       return zeroDiscount;
     }
 
-    // Ensure maxCartDiscountCap exists and is non-negative (price-model throws error when amount < 0)
+    // If maxCartDiscountCap is not set, return zero discount
     if (!maxCartDiscountCap) {
       return zeroDiscount;
     }

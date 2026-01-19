@@ -196,7 +196,7 @@ export default class PriceModel {
       }
 
       return minPrice.compareTo(currentPrice) < 0 ? minPrice : currentPrice;
-    });
+    }, this);
   }
 
   public max(...priceModels: PriceModel[]): PriceModel {
@@ -212,7 +212,7 @@ export default class PriceModel {
       }
 
       return maxPrice.compareTo(currentPrice) > 0 ? maxPrice : currentPrice;
-    });
+    }, this);
   }
 
   /**

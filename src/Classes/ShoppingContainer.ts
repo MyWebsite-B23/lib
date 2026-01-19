@@ -450,7 +450,7 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
         if (currentCouponValue === maxCouponValue) {
           return currentCoupon.getType() === 'coupon' ? currentCoupon : maxCoupon;
         }
-        return currentCouponValue > maxCouponValue ? currentCoupon : maxCoupon;
+        return currentCouponValue.compareTo(maxCouponValue) > 0 ? currentCoupon : maxCoupon;
       });
 
       const couponValue = maxValuedCoupon.calculateApplicableCouponDiscount(subTotalWithCouponDiscount, this.total.shipping, this.country, this.currency).min(this.total.shipping);
