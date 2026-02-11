@@ -144,3 +144,10 @@ export class InvalidImageSourceError extends Error {
         this.name = 'InvalidImageSourceError';
     }
 }
+
+export class InvalidChargeError extends Error {
+    constructor(message: string = "Invalid charge data.") {
+        super(`InvalidCharge: ${message}`);
+        this.name = 'InvalidChargeError';
+    }
+}

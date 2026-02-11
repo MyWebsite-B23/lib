@@ -75,7 +75,7 @@ export default class CartModel extends BaseShoppingContainerModel {
     this.lineItems = [];
     this.coupons = [];
     this.shippingDetails = null;
-    this.total.couponTotal = {};
+    this.total.discounts = {};
     this.calculateTotals();
   }
 
@@ -158,6 +158,7 @@ export default class CartModel extends BaseShoppingContainerModel {
     }
 
     this.lineItems.splice(index, 1);
+    this.charges = this.charges.filter(charge => charge.getLineItemId() !== lineItemId);
     this.calculateTotals();
 
     return index;

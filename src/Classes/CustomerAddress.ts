@@ -71,7 +71,7 @@ export default class CustomerAddressModel extends BaseModel {
    */
   getAddresses(): AddressModel[] {
     return Object.values(this.addresses)
-      .sort((a, b) => b.getCreatedAtTime() - a.getCreatedAtTime());;
+      .sort((a, b) => b.getCreatedAtTime() - a.getCreatedAtTime());
   }
 
   /**

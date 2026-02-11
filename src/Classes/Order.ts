@@ -3,6 +3,7 @@ import { LineItemNotFoundError } from "./Error";
 import { LineItemState } from "./Enum";
 import { PaymentStatus } from "./Payment";
 import BaseShoppingContainerModel, { BaseShoppingContainerAttributes, BaseShoppingContainerData, ShoppingContainerTotal } from "./ShoppingContainer";
+import { Prettify } from "./Common";
 
 /**
  * PLACED: Order created, awaiting payment.
@@ -40,9 +41,9 @@ export type OrderAttributes = Omit<BaseShoppingContainerAttributes, 'anonymousId
 /**
  * Output data structure for an OrderModel.
  */
-export type OrderData = BaseShoppingContainerData & OrderAttributes & {
+export type OrderData = Prettify<BaseShoppingContainerData & OrderAttributes & {
   holdReason: string;
-};
+}>;
 
 
 export default class OrderModel extends BaseShoppingContainerModel {
@@ -51,12 +52,13 @@ export default class OrderModel extends BaseShoppingContainerModel {
   protected paymentStatus: PaymentStatus;
   protected holdReason: string;
   protected state: OrderState;
+  protected shippingAddress: AddressModel;
+  protected billingAddress: AddressModel;
 
   /**
    * Creates an instance of OrderModel.
    * @param data - The initial order attributes, including cart data.
    * @param date - Optional date for setting creation/modification times (defaults to now).
-   * @param config - Optional cart configuration (might be less relevant for orders).
    */
   constructor(data: OrderAttributes, date: Date = new Date()) {
     super(data, date);
@@ -65,6 +67,8 @@ export default class OrderModel extends BaseShoppingContainerModel {
     this.paymentStatus = data.paymentStatus;
     this.holdReason = data.holdReason || '';
     this.state = data.state;
+    this.shippingAddress = new AddressModel(data.shippingAddress, date);
+    this.billingAddress = new AddressModel(data.billingAddress, date);
   }
 
   /**
@@ -87,20 +91,18 @@ export default class OrderModel extends BaseShoppingContainerModel {
 
   /**
    * Gets the shipping address associated with the order.
-   * Overrides the base method to guarantee a non-null return type for orders.
    * @returns An AddressModel instance for the shipping address.
    */
   public getShippingAddress(): AddressModel {
-    return this.shippingAddress as AddressModel;
+    return this.shippingAddress;
   }
 
   /**
    * Gets the billing address associated with the order.
-   * Overrides the base method to guarantee a non-null return type for orders.
    * @returns An AddressModel instance for the billing address.
    */
   public getBillingAddress(): AddressModel {
-    return this.billingAddress as AddressModel;
+    return this.billingAddress;
   }
 
 

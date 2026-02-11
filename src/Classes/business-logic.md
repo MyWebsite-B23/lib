@@ -31,9 +31,20 @@
 - **Tax Calculation Basis**: Tax is calculated on the **post-discount** unit price.
     - Formula: `(LineSubtotal - AllocatedDiscount) / Quantity` = `TaxableUnitPrice`.
     - This ensures taxes reflect the actual transaction value after promotions.
+- **Unit Price Basis**: All unit prices are strictly **tax-exclusive**.
+- **Discount Application**: Discounts are applied on the **pre-tax base unit price**.
 - **Discount Distribution Math**:
     - Items are sorted by subtotal (ascending) before distribution.
     - The **last item** in the list absorbs any rounding remainder to ensure: `Sum(AllocatedParts) === TotalCouponValue`.
+
+### Charge Logic (Shipping, Adjustments, etc.)
+- **Tax Inclusivity**: Charges are always considered to have **tax-inclusive** pricing.
+- **Discount Application**: Discounts on charges are applied to the **taxed grand total** (Gross Amount), not the pre-tax base.
+- **Tax Calculation (Inclusive)**:
+    - Formula: `TaxableBase = GrossAmount / (1 + TotalTaxRate)`.
+    - **Precision**: To avoid rounding "penny gaps", the **Net Price** is rounded first, and the **Total Tax** is derived as the residual (`Gross - Net`).
+    - **Distribution**: The rounding residual from distributing tax among multiple rules is absorbed by the rule with the **largest rate**.
+- **Rule Constraints**: Charges **must** use fixed-rate tax rules (no tiered slabs). This ensures a predictable 1-to-1 reverse mapping between the inclusive Grand Total and the Net Price/Tax values.
 
 ### Tax Rules
 - **Non-Progressive Slabs**: Tax logic uses a flat slab system. The *entire* unit price determines the applicable rate.

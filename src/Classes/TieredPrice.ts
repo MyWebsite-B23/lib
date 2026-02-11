@@ -1,4 +1,3 @@
-import { TaxCategory } from "./Enum";
 import PriceModel, { PriceData } from "./Price";
 import {
   InvalidTaxCategoryError,
@@ -21,7 +20,7 @@ export type PriceTier = {
  */
 export type TieredPriceAttributes = {
   baseUnitPrice: PriceData;
-  taxCategory: TaxCategory;
+  taxCategory: string;
 
   /** Quantity-based pricing tiers */
   tiers: {
@@ -34,7 +33,7 @@ export type TieredPriceData = TieredPriceAttributes;
 
 export class TieredPriceModel {
   protected baseUnitPrice: PriceModel;
-  protected taxCategory: TaxCategory;
+  protected taxCategory: string;
   protected tiers: PriceTier[];
 
   /** Constructor
@@ -98,7 +97,7 @@ export class TieredPriceModel {
    * Returns the tax category 
    * @returns The tax category as a TaxCategory enum value.
    */
-  getTaxCategory(): TaxCategory {
+  getTaxCategory(): string {
     return this.taxCategory;
   }
 
@@ -107,7 +106,10 @@ export class TieredPriceModel {
    * @returns An array of PriceTier objects.
    */
   getTiers(): readonly PriceTier[] {
-    return this.tiers;
+    return this.tiers.map(tier => ({
+      minQuantity: tier.minQuantity,
+      unitPrice: tier.unitPrice
+    }));
   }
 
   getDetails(): TieredPriceData {
@@ -138,7 +140,8 @@ export class TieredPriceModel {
 
     for (let i = this.tiers.length - 1; i >= 0; i--) {
       if (quantity >= this.tiers[i].minQuantity) {
-        return this.tiers[i];
+        const tier = this.tiers[i];
+        return { minQuantity: tier.minQuantity, unitPrice: tier.unitPrice };
       }
     }
 

@@ -1,6 +1,6 @@
 {
   "name": "b23-lib",
-  "version": "2.2.0",
+  "version": "3.0.6",
   "description": "This repo hold common classes, type and util functiona",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -134,6 +134,16 @@
       "require": {
         "types": "./dist/Classes/LineItem.d.ts",
         "default": "./dist/Classes/LineItem.js"
+      }
+    },
+    "./charge": {
+      "import": {
+        "types": "./dist/Classes/Charge.d.mts",
+        "default": "./dist/Classes/Charge.mjs"
+      },
+      "require": {
+        "types": "./dist/Classes/Charge.d.ts",
+        "default": "./dist/Classes/Charge.js"
       }
     },
     "./order": {

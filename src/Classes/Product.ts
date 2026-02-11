@@ -291,7 +291,7 @@ export default class ProductModel extends BaseModel {
     if (country) {
       return this.pricing[country] ?? null;
     }
-    return this.pricing;
+    return { ...this.pricing };
   }
 
   /**
@@ -310,10 +310,10 @@ export default class ProductModel extends BaseModel {
   getVariants(): VariantModel[] {
     return this.variants.map(variant => ({
       sku: variant.sku,
-      selectionAttributes: variant.selectionAttributes,
+      selectionAttributes: Utils.deepClone(variant.selectionAttributes),
       images: {
         primary: variant.images.primary,
-        gallery: variant.images.gallery
+        gallery: [...variant.images.gallery]
       }
     }));
   }
@@ -330,7 +330,10 @@ export default class ProductModel extends BaseModel {
       ProductModel.generateSelectionAttributesKey(variant.selectionAttributes) === searchKey
     );
 
-    return match ? match.images : null;
+    return match ? {
+      primary: match.images.primary,
+      gallery: [...match.images.gallery]
+    } : null;
   }
 
   /**

@@ -45,8 +45,8 @@ export default class PriceModel {
 
   static isPriceModel(obj: unknown): obj is PriceModel {
     return typeof obj === "object" &&
-    obj !== null &&
-    (obj as any).kind === "PriceModel";
+      obj !== null &&
+      (obj as any).kind === "PriceModel";
   }
 
   /**
@@ -241,6 +241,7 @@ export default class PriceModel {
       amount: this.getRoundedAmount()
     });
   }
+
   /**
    * Gets the rounded price value based on standard currency rules.
    * @returns The numeric price, rounded according to its currency's typical decimal places.

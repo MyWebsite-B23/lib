@@ -52,12 +52,18 @@ export class InventoryModel extends BaseModel {
    */
   getStockData(selectionAttributes?: SelectionAttributes, size?: string, country?: CountryCode): StockData[] {
     let selectionAttributeKey = selectionAttributes ? ProductModel.generateSelectionAttributesKey(selectionAttributes) : undefined;
-    return this.stocks.filter(item => {
-      if (selectionAttributeKey && ProductModel.generateSelectionAttributesKey(item.selectionAttributes) !== selectionAttributeKey) return false;
-      if (size && item.size !== size) return false;
-      if (country && item.country !== country) return false;
-      return true;
-    });
+    return this.stocks
+      .filter(item => {
+        if (selectionAttributeKey && ProductModel.generateSelectionAttributesKey(item.selectionAttributes) !== selectionAttributeKey) return false;
+        if (size && item.size !== size) return false;
+        if (country && item.country !== country) return false;
+        return true;
+      }).map(item => ({
+        selectionAttributes: Utils.deepClone(item.selectionAttributes),
+        size: item.size,
+        available: item.available,
+        country: item.country
+      }));
   }
 
   /**

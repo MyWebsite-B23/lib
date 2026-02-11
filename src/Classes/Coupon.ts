@@ -184,7 +184,7 @@ export default class CouponModel extends BaseModel {
     if (country) {
       return this.minCartValue[country];
     }
-    return this.minCartValue;
+    return { ...this.minCartValue };
   }
 
   /**
@@ -203,7 +203,7 @@ export default class CouponModel extends BaseModel {
     if (country) {
       return this.maxCartDiscount[country];
     }
-    return this.maxCartDiscount;
+    return { ...this.maxCartDiscount };
   }
 
   /** Gets the discount method (FLAT or PERCENTAGE). */

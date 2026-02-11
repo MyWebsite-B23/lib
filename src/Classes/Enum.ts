@@ -4,7 +4,7 @@
 export enum OperationalCountry {
   /** India */ IN = 'IN',
 }
-  
+
 export enum OperationalCountryCurrency {
   /** India */ INR = 'INR',
 }
@@ -25,7 +25,7 @@ export const LocaleLanguageMap: Record<OperationalLocale, OperationalLanguage> =
 }
 
 export const LocaleCountryMap: Record<OperationalLocale, OperationalCountry> = {
-   [OperationalLocale["en-IN"]]: OperationalCountry.IN,
+  [OperationalLocale["en-IN"]]: OperationalCountry.IN,
   [OperationalLocale["kn-IN"]]: OperationalCountry.IN,
 }
 
@@ -33,7 +33,7 @@ export const LocaleCountryMap: Record<OperationalLocale, OperationalCountry> = {
  * Defines the supported ISO 4217 currency codes as an enumeration.
  */
 export const CountryCurrencyMap = {
-  /** India */ [OperationalCountry.IN]: OperationalCountryCurrency.INR,
+  /** India */[OperationalCountry.IN]: OperationalCountryCurrency.INR,
 };
 
 export const CurrencySymbolMap = {
@@ -62,9 +62,19 @@ export enum ImageCategory {
   GALLERY = 'GALLERY'
 }
 
-export enum TaxCategory {
-  APPAREL = 'apparel',
-  EXEMPT = 'exempt'
+export enum ChargeType {
+  SHIPPING = 'SHIPPING',
+  ADJUSTMENT = 'ADJUSTMENT'
+}
+
+export enum ChargeImpact {
+    ADD = "ADD",
+    SUBTRACT = "SUBTRACT",
+}
+
+export enum ChargeTaxTreatment {
+    APPLY = "APPLY",
+    EXEMPT = "EXEMPT",
 }
 
 export enum TaxSystem {

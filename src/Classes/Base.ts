@@ -1,6 +1,8 @@
 import { AuthType } from "../Auth";
 import { ISODateTimeUTC, Prettify } from "./Common";
 
+const deepClone = <T>(obj: T): T => structuredClone(obj);
+
 export interface CustomFields {
   [key: string]: any;
 }
@@ -21,7 +23,9 @@ export class CustomFieldModel {
    * @returns The value of the custom field, or null if the field does not exist.
    */
   getCustomField(fieldName: string): any {
-    return this.customFields[fieldName] ?? null;
+    const value = this.customFields[fieldName];
+    if (value === undefined || value === null) return value;
+    return deepClone(value);
   }
 
   /**
@@ -39,7 +43,7 @@ export class CustomFieldModel {
    * @returns An object containing all custom fields.
    */
   getAllCustomFields(): CustomFields {
-    return { ...this.customFields };
+    return deepClone(this.customFields);
   }
 }
 
