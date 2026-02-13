@@ -12,6 +12,13 @@ export class InvalidLineItemStateError extends Error {
     }
 }
 
+export class InvalidLineItemTaxRuleError extends Error {
+    constructor(message: string) {
+        super(`InvalidLineItemTaxRule: ${message}`);
+        this.name = 'InvalidLineItemTaxRuleError';
+    }
+}
+
 export class DuplicateSizeError extends Error {
     constructor(size: string) {
         super(`Duplicate size found: ${size}`);
@@ -149,5 +156,12 @@ export class InvalidChargeError extends Error {
     constructor(message: string = "Invalid charge data.") {
         super(`InvalidCharge: ${message}`);
         this.name = 'InvalidChargeError';
+    }
+}
+
+export class InvalidChargeTaxRuleError extends Error {
+    constructor(message: string = "Invalid charge tax rule.") {
+        super(`InvalidChargeTaxRule: ${message}`);
+        this.name = 'InvalidChargeTaxRuleError';
     }
 }

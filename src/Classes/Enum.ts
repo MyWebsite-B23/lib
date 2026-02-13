@@ -72,11 +72,6 @@ export enum ChargeImpact {
     SUBTRACT = "SUBTRACT",
 }
 
-export enum ChargeTaxTreatment {
-    APPLY = "APPLY",
-    EXEMPT = "EXEMPT",
-}
-
 export enum TaxSystem {
   GST = 'GST',
 }

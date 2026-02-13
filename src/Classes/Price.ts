@@ -35,8 +35,8 @@ export default class PriceModel {
       throw new InvalidCurrencyCodeError("Currency code is required.");
     }
 
-    this.amount = data.amount;
     this.currency = data.currency;
+    this.amount = parseFloat(data.amount.toFixed(PriceModel.getPrecisionPlaces(this.currency)));
   }
 
   get kind() {
@@ -73,6 +73,10 @@ export default class PriceModel {
       amount: this.amount,
       currency: this.currency
     }
+  }
+
+  public getPreciseAmount(amount: number): number {
+    return parseFloat(amount.toFixed(PriceModel.getPrecisionPlaces(this.currency)));
   }
 
   /**
@@ -116,7 +120,7 @@ export default class PriceModel {
       throw new CurrencyMismatchError("Cannot compare prices in different currencies.");
     }
 
-    return this.amount - priceModel.getAmount();
+    return this.getPreciseAmount(this.amount - priceModel.getAmount());
   }
 
   public add(priceModel: PriceModel): PriceModel {
@@ -127,7 +131,7 @@ export default class PriceModel {
     }
 
     return new PriceModel({
-      amount: this.amount + priceModel.getAmount(),
+      amount: this.getPreciseAmount((this.amount + priceModel.getAmount())),
       currency: this.currency
     });
   }
@@ -140,7 +144,7 @@ export default class PriceModel {
     }
 
     return new PriceModel({
-      amount: this.amount - priceModel.getAmount(),
+      amount: this.getPreciseAmount(this.amount - priceModel.getAmount()),
       currency: this.currency
     });
   }
@@ -151,12 +155,12 @@ export default class PriceModel {
         throw new CurrencyMismatchError("Cannot multiply prices in different currencies.");
       }
       return new PriceModel({
-        amount: this.amount * factor.getAmount(),
+        amount: this.getPreciseAmount(this.amount * factor.getAmount()),
         currency: this.currency
       });
     } else if (typeof factor === "number" && factor >= 0) {
       return new PriceModel({
-        amount: this.amount * factor,
+        amount: this.getPreciseAmount(this.amount * factor),
         currency: this.currency
       });
     }
@@ -170,12 +174,12 @@ export default class PriceModel {
         throw new CurrencyMismatchError("Cannot divide prices in different currencies.");
       }
       return new PriceModel({
-        amount: this.amount / divisor.getAmount(),
+        amount: this.getPreciseAmount(this.amount / divisor.getAmount()),
         currency: this.currency
       });
     } else if (typeof divisor === "number" && divisor > 0) {
       return new PriceModel({
-        amount: this.amount / divisor,
+        amount: this.getPreciseAmount(this.amount / divisor),
         currency: this.currency
       });
     }
@@ -330,6 +334,19 @@ export default class PriceModel {
       case OperationalCountryCurrency.INR:
       default:
         return 2;
+    }
+  }
+
+  /**
+   * Helper method to determine standard precision places for a currency.
+   * @param currency - The currency code.
+   * @return The number of precision places (0, 2, or 3 based on common rules).
+   */  
+    private static getPrecisionPlaces(currency: CurrencyCode): number {
+      switch (currency) {
+        case OperationalCountryCurrency.INR:
+        default:
+          return 6;
     }
   }
 

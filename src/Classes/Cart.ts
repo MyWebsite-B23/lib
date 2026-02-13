@@ -73,9 +73,9 @@ export default class CartModel extends BaseShoppingContainerModel {
    */
   public clearCartItems() {
     this.lineItems = [];
+    this.charges = [];
     this.coupons = [];
     this.shippingDetails = null;
-    this.total.discounts = {};
     this.calculateTotals();
   }
 

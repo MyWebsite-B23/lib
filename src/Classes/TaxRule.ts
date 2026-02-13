@@ -1,37 +1,51 @@
-import Utils from "../Utils";
-import BaseModel, { BaseAttributes } from "./Base";
-import { CountryCode, ISODateTimeUTC } from "./Common";
+import { CustomFieldAttributes, CustomFieldModel } from "./Base";
+import { CountryCode, ISODateTimeUTC, Prettify } from "./Common";
 import { TaxSystem } from "./Enum";
 import PriceModel, { PriceData } from "./Price";
-import { TaxSlabNotFoundError } from "./Error";
 
-export type TaxRuleBaseAttributes = {
+export type TaxRuleAttributes = Prettify<CustomFieldAttributes & {
   taxRuleId: string;
   taxCategory: string;
   taxSystem: TaxSystem;
   taxSubSystem: string;
-  taxCountry: CountryCode;
+  country: CountryCode;
+  rate: number;
+  minPrice: PriceData;
+  maxPrice?: PriceData;
+  excludeMin?: boolean;
+  excludeMax?: boolean;
   effectiveFrom: ISODateTimeUTC;
   effectiveTo?: ISODateTimeUTC;
-}
+}>;
 
-export type TaxRuleBaseData = TaxRuleBaseAttributes;
+export type TaxRuleData = TaxRuleAttributes;
 
-export class TaxRuleBaseModel {
+export class TaxRuleModel extends CustomFieldModel{
   protected taxRuleId: string;
   protected taxCategory: string;
   protected taxSystem: TaxSystem;
   protected taxSubSystem: string;
-  protected taxCountry: CountryCode;
+  protected country: CountryCode;
+  protected rate: number;
+  protected minPrice: PriceModel;
+  protected maxPrice?: PriceModel;
+  protected excludeMin: boolean;
+  protected excludeMax: boolean;
   protected effectiveFrom: ISODateTimeUTC;
   protected effectiveTo?: ISODateTimeUTC;
 
-  constructor(data: TaxRuleBaseAttributes) {
+  constructor(data: TaxRuleAttributes) {
+    super(data);
     this.taxRuleId = data.taxRuleId;
     this.taxSystem = data.taxSystem;
     this.taxSubSystem = data.taxSubSystem;
     this.taxCategory = data.taxCategory;
-    this.taxCountry = data.taxCountry;
+    this.country = data.country;
+    this.rate = data.rate;
+    this.minPrice = new PriceModel(data.minPrice);
+    this.maxPrice = data.maxPrice ? new PriceModel(data.maxPrice) : undefined;
+    this.excludeMin = data.excludeMin ?? false;
+    this.excludeMax = data.excludeMax ?? false;
     this.effectiveFrom = new Date(data.effectiveFrom).toISOString();
     this.effectiveTo = data.effectiveTo ? new Date(data.effectiveTo).toISOString() : undefined;
   }
@@ -52,8 +66,28 @@ export class TaxRuleBaseModel {
     return this.taxCategory;
   }
 
-  getTaxCountry(): CountryCode {
-    return this.taxCountry;
+  getCountry(): CountryCode {
+    return this.country;
+  }
+
+  getRate(): number {
+    return this.rate;
+  }
+
+  getMinPrice(): PriceModel {
+    return this.minPrice;
+  }
+
+  getMaxPrice(): PriceModel | undefined {
+    return this.maxPrice;
+  }
+
+  getExcludeMin(): boolean {
+    return this.excludeMin;
+  }
+
+  getExcludeMax(): boolean {
+    return this.excludeMax;
   }
 
   getEffectiveFrom(): string {
@@ -64,35 +98,77 @@ export class TaxRuleBaseModel {
     return this.effectiveTo;
   }
 
-  getDetails(): TaxRuleBaseData {
+  getDetails(): TaxRuleData {
     return {
       taxRuleId: this.getTaxRuleId(),
       taxSystem: this.getTaxSystem(),
       taxSubSystem: this.getTaxSubSystem(),
       taxCategory: this.getTaxCategory(),
-      taxCountry: this.getTaxCountry(),
+      country: this.getCountry(),
+      rate: this.getRate(),
+      minPrice: this.getMinPrice().getDetails(),
+      maxPrice: this.getMaxPrice()?.getDetails(),
+      excludeMin: this.getExcludeMin(),
+      excludeMax: this.getExcludeMax(),
       effectiveFrom: this.effectiveFrom,
-      effectiveTo: this.effectiveTo ? this.effectiveTo : undefined
+      effectiveTo: this.effectiveTo ? this.effectiveTo : undefined,
+      customFields: this.getAllCustomFields(),
     };
   }
 
   /**
-   * Checks whether this tax rule is applicable for the given category and taxCountry at a specific time.
+   * Checks whether this tax rule is applicable for the given category and country at a specific time.
    * @param taxCategory - The tax category to check.
-   * @param taxCountry - The taxCountry code to check.
+   * @param country - The country code to check.
+   * @param price - The price to check against the rule's price range (optional).
    * @param at - The date to check effectiveness against (defaults to now).
    * @returns True if the rule is applicable, false otherwise.
    */
-  appliesTo(taxCategory: string, taxCountry: CountryCode, at: Date = new Date()): boolean {
+  appliesTo(taxCategory: string, country: CountryCode, price?: PriceModel, at: Date = new Date()): boolean {
+    const isPriceInRange = !price || (
+      (this.excludeMin ? this.minPrice.compareTo(price) < 0 : this.minPrice.compareTo(price) <= 0) &&
+      (this.maxPrice
+        ? (this.excludeMax ? this.maxPrice.compareTo(price) > 0 : this.maxPrice.compareTo(price) >= 0)
+        : true
+      )
+    );
+
     return (
       this.taxCategory === taxCategory &&
-      this.taxCountry === taxCountry &&
+      this.country === country &&
+      isPriceInRange &&
       Date.parse(this.effectiveFrom) <= at.getTime() &&
       (this.effectiveTo ? Date.parse(this.effectiveTo) >= at.getTime() : true)
     );
   }
 
-  static getTaxRateDisplayString(taxRule: TaxRuleBaseModel, rate: number, formateOption?: {
+  /**
+   * Gets the applicable tax rate for a given price. Returns the tax rate if the rule applies, otherwise returns 0.
+   * @param price - The price to check against the tax rule.
+   * @returns The applicable tax rate as a decimal (e.g., 0.18 for 18%).
+   */
+  getApplicableTaxRate(price: PriceModel): number {
+    if(this.appliesTo(this.taxCategory, this.country, price)) {
+      return this.rate;
+    }
+    return 0;
+  }
+
+  /**
+   * Calculates the tax amount for a given taxable amount.
+   * @param price - The price used to determine the tax amount.
+   * @returns The calculated tax amount as a PriceModel. Returns zero if the tax rule does not apply.
+   */
+  calculateTax(price: PriceModel): PriceModel {
+    if(!this.appliesTo(this.taxCategory, this.country, price)) {
+      return price.zero(); // Return zero tax if the rule does not apply
+    }
+
+    return price.multiply(this.rate);
+  }
+
+
+  static getTaxRateDisplayString(taxRule: TaxRuleModel, rate: number, formateOption?: {
     percentageOnly?: boolean;
   }): string {
     const percentage = rate * 100;
@@ -110,136 +186,3 @@ export class TaxRuleBaseModel {
   }
 }
 
-export type TaxSlabData = {
-  minUnitPrice: PriceData; // inclusive
-  maxUnitPrice?: PriceData; // exclusive
-  rate: number; // e.g. 0.05 = 5%
-};
-
-export type TaxSlabModel = {
-  minUnitPrice: PriceModel; // inclusive
-  maxUnitPrice?: PriceModel; // exclusive
-  rate: number; // e.g. 0.05 = 5%
-};
-
-export type TaxSlabs = TaxSlabData[];
-
-export type TaxRuleAttributes = TaxRuleBaseAttributes & {
-  slabs: TaxSlabs;
-};
-
-export type TaxRuleData = TaxRuleAttributes;
-
-export class TaxRuleModel extends TaxRuleBaseModel {
-  protected slabs: TaxSlabModel[];
-
-  /**
-   * Creates an instance of TaxRuleModel.
-   * @param data - The initial tax rule attributes.
-   */
-  constructor(data: TaxRuleAttributes) {
-    super(data)
-    this.slabs = data.slabs.map(s => ({
-      rate: s.rate,
-      minUnitPrice: new PriceModel(s.minUnitPrice),
-      maxUnitPrice: s.maxUnitPrice ? new PriceModel(s.maxUnitPrice) : undefined,
-    }));
-  }
-
-  getSlabs(): TaxSlabModel[] {
-    return this.slabs.map(s => ({
-      rate: s.rate,
-      minUnitPrice: s.minUnitPrice,
-      maxUnitPrice: s.maxUnitPrice,
-    }));
-  }
-
-  getDetails(): TaxRuleData {
-    return {
-      ...super.getDetails(),
-      slabs: this.getSlabs().map(s => ({
-        rate: s.rate,
-        minUnitPrice: s.minUnitPrice.getDetails(),
-        maxUnitPrice: s.maxUnitPrice ? s.maxUnitPrice.getDetails() : undefined,
-      })),
-    };
-  }
-
-  /**
-   * Gets the applicable tax rate for the given unit price based on the slabs.
-   * @param unitPrice - The unit price to match against slabs.
-   * @returns The applicable tax rate as a decimal (e.g., 0.18 for 18%).
-   */
-  getApplicableTaxRate(unitPrice: PriceModel): number {
-    return TaxRuleModel.getApplicableTaxRate(unitPrice, this.slabs);
-  }
-
-  /**
-   * Calculates the tax amount for a given taxable amount.
-   * @param unitPrice - The unit price used to determine which tax slab applies.
-   * @returns The calculated tax amount as a PriceModel.
-   */
-  calculateTax(unitPrice: PriceModel): PriceModel {
-    const rate = this.getApplicableTaxRate(unitPrice);
-    return unitPrice.multiply(rate);
-  }
-
-  /**
-   * Calculates the applicable tax rate for a given unit price.
-   * @param unitPrice - The unit price to find the matching tax slab for.
-   * @returns The tax rate as a decimal (e.g., 0.05 for 5%).
-   * @throws {TaxSlabNotFoundError} If no applicable slab or multiple slabs are found.
-   */
-  static getApplicableTaxRate(unitPrice: PriceModel, taxSlabs: TaxSlabModel[]): number {
-    const slabs = taxSlabs.filter(s =>
-      (s.minUnitPrice === undefined || unitPrice.compareTo(s.minUnitPrice) >= 0) &&
-      (s.maxUnitPrice === undefined || unitPrice.compareTo(s.maxUnitPrice) < 0)
-    );
-
-    if (slabs.length !== 1) {
-      throw new TaxSlabNotFoundError();
-    }
-
-    return slabs[0].rate;
-  }
-}
-
-
-export type FixedTaxRuleAttributes = TaxRuleBaseAttributes & {
-  rate: number;
-}
-
-export type FixedTaxRuleData = FixedTaxRuleAttributes;
-
-/**
- * A specialized version of TaxRuleModel for fixed-rate taxes (single slab).
- * Ideal for components like Charges where slab-based logic is not required.
- */
-export class FixedTaxRuleModel extends TaxRuleBaseModel {
-  protected rate: number;
-
-  constructor(data: FixedTaxRuleAttributes) {
-    super(data);
-    this.rate = data.rate;
-  }
-
-  public getApplicableTaxRate(): number {
-    return this.rate;
-  }
-
-  /**
-   * Calculates the tax amount for a given taxable amount.
-   * @returns The calculated tax amount as a PriceModel.
-   */
-  calculateTax(unitPrice: PriceModel): PriceModel {
-    const rate = this.getApplicableTaxRate();
-    return unitPrice.multiply(rate);
-  }
-
-  public getDetails(): FixedTaxRuleData {
-    return {
-      ...super.getDetails(),
-      rate: this.getApplicableTaxRate(),
-    };
-  }
-}
