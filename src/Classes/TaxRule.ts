@@ -20,7 +20,7 @@ export type TaxRuleAttributes = Prettify<CustomFieldAttributes & {
 
 export type TaxRuleData = TaxRuleAttributes;
 
-export class TaxRuleModel extends CustomFieldModel{
+export class TaxRuleModel extends CustomFieldModel {
   protected taxRuleId: string;
   protected taxCategory: string;
   protected taxSystem: TaxSystem;
