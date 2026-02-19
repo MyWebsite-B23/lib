@@ -1,9 +1,10 @@
-import { TaxSystem } from "./Enum";
+import { ChargeImpact, ChargeType, TaxSystem } from "./Enum";
 import PriceModel, { PriceData } from "./Price";
 import { CountryCode, CurrencyCode, LocaleCode, Prettify } from "./Common";
 import AddressModel, { AddressData } from "./Address";
 import { ShoppingContainerTotal, ShoppingContainerTotalModel, TaxSystemBreakdown, TaxSystemBreakdownModel } from "./ShoppingContainer";
 import BaseModel, { BaseAttributes, BaseData } from "./Base";
+import Utils from "../Utils";
 
 export type InvoiceTaxBreakdown = {
   rate: number;
@@ -27,26 +28,57 @@ export type InvoiceLineItemData = {
   name: string;
   variantLabel: string;
   quantity: number;
+  netUnitPrice: PriceData;
+  netSubtotal: PriceData;
+  taxTotal: PriceData;
+  grandTotal: PriceData;
+  taxBreakdown: Record<string, InvoiceTaxBreakdown>;
+  taxCode: string;
+  taxCodeType: string;
+}
+
+export type InvoiceLineItemModel = {
+  id: string;
+  productKey: string;
+  name: string;
+  variantLabel: string;
+  quantity: number;
   netUnitPrice: PriceModel;
   netSubtotal: PriceModel;
   taxTotal: PriceModel;
   grandTotal: PriceModel;
-  taxBreakdown: Record<string, InvoiceTaxBreakdown>;
+  taxBreakdown: Record<string, InvoiceTaxBreakdownModel>;
   taxCode: string;
   taxCodeType: string;
 }
 
 export type InvoiceChargeData = {
   id: string;
+  type: ChargeType;
+  category: string;
+  impact: ChargeImpact;
   name: string;
-  taxableValue: PriceModel;
-  taxTotal: PriceModel;
-  grandTotal: PriceModel;
+  taxableValue: PriceData;
+  taxTotal: PriceData;
+  grandTotal: PriceData;
   taxBreakdown: Record<string, InvoiceTaxBreakdown>;
   taxCode: string;
   taxCodeType: string;
 }
 
+export type InvoiceChargeModel = {
+  id: string;
+  type: ChargeType;
+  category: string;
+  impact: ChargeImpact;
+  name: string;
+  taxableValue: PriceModel;
+  taxTotal: PriceModel;
+  grandTotal: PriceModel;
+  taxBreakdown: Record<string, InvoiceTaxBreakdownModel>;
+  taxCode: string;
+  taxCodeType: string;
+}
 
 export type InvoiceTaxContextData = {
   recipientTaxIdentifier: string;
@@ -54,6 +86,22 @@ export type InvoiceTaxContextData = {
   supplyRegion: string;
   supplyRegionCode: string;
 }
+
+export type MerchantData = {
+  merchantName: string;
+  taxIdentifier: string;
+  email: string;
+  phone: string;
+  address: AddressData;
+};
+
+export type MerchantModel = {
+  merchantName: string;
+  taxIdentifier: string;
+  email: string;
+  phone: string;
+  address: AddressModel;
+};
 
 export type InvoiceTotal = ShoppingContainerTotal;
 export type InvoiceTotalModel = ShoppingContainerTotalModel;
@@ -70,6 +118,7 @@ export type InvoiceAttributes = Prettify<BaseAttributes & {
   billingAddress: AddressData;
   shippingAddress: AddressData;
   taxContext: InvoiceTaxContextData;
+  merchant: MerchantData;
   lineItems: InvoiceLineItemData[];
   charges: InvoiceChargeData[];
   total: InvoiceTotal;
@@ -89,8 +138,9 @@ export default class InvoiceModel extends BaseModel {
   protected billingAddress: AddressModel;
   protected shippingAddress: AddressModel;
   protected taxContext: InvoiceTaxContextData;
-  protected lineItems: InvoiceLineItemData[];
-  protected charges: InvoiceChargeData[];
+  protected merchant: MerchantModel;
+  protected lineItems: InvoiceLineItemModel[];
+  protected charges: InvoiceChargeModel[];
   protected total: InvoiceTotalModel;
 
   constructor(data: InvoiceAttributes, date: Date = new Date()) {
@@ -106,8 +156,51 @@ export default class InvoiceModel extends BaseModel {
     this.billingAddress = new AddressModel(data.billingAddress);
     this.shippingAddress = new AddressModel(data.shippingAddress);
     this.taxContext = data.taxContext;
-    this.lineItems = data.lineItems;
-    this.charges = data.charges;
+    this.merchant = {
+      merchantName: data.merchant.merchantName,
+      taxIdentifier: data.merchant.taxIdentifier,
+      email: data.merchant.email,
+      phone: data.merchant.phone,
+      address: new AddressModel(data.merchant.address)
+    };
+    this.lineItems = data.lineItems.map((item) => {
+      return {
+        ...item,
+        netUnitPrice: new PriceModel(item.netUnitPrice),
+        netSubtotal: new PriceModel(item.netSubtotal),
+        taxTotal: new PriceModel(item.taxTotal),
+        grandTotal: new PriceModel(item.grandTotal),
+        taxBreakdown: Object.fromEntries(
+          Object.entries(item.taxBreakdown || {}).map(([systemKey, systemValue]) => [
+            systemKey,
+            {
+              ...systemValue,
+              taxableAmount: new PriceModel(systemValue.taxableAmount),
+              taxAmount: new PriceModel(systemValue.taxAmount),
+            },
+          ])
+        )
+      };
+    });
+    this.charges = data.charges.map((charge) => {
+      return {
+        ...charge,
+        taxableValue: new PriceModel(charge.taxableValue),
+        taxTotal: new PriceModel(charge.taxTotal),
+        grandTotal: new PriceModel(charge.grandTotal),
+        taxBreakdown: Object.fromEntries(
+          Object.entries(charge.taxBreakdown || {}).map(([systemKey, systemValue]) => [
+            systemKey,
+            {
+              ...systemValue,
+              taxableAmount: new PriceModel(systemValue.taxableAmount),
+              taxAmount: new PriceModel(systemValue.taxAmount),
+            },
+          ])
+        )
+      };
+    });
+
     this.total = {
       lineItemSubtotal: new PriceModel(data.total.lineItemSubtotal),
       netLineItemSubtotal: new PriceModel(data.total.netLineItemSubtotal),
@@ -154,7 +247,7 @@ export default class InvoiceModel extends BaseModel {
 
   private serializeTaxBreakdown(breakdown: Record<string, TaxSystemBreakdownModel>): Record<string, TaxSystemBreakdown> {
     return Object.fromEntries(
-      Object.entries(breakdown || {}).map(([systemKey, systemValue]) => [
+      Object.entries(breakdown).map(([systemKey, systemValue]) => [
         systemKey,
         {
           system: systemValue.system,
@@ -242,12 +335,22 @@ export default class InvoiceModel extends BaseModel {
     return this.taxContext.supplyRegionCode;
   }
 
-  getLineItems(): InvoiceLineItemData[] {
-    return this.lineItems;
+  getMerchant(): MerchantModel {
+    return {
+      merchantName: this.merchant.merchantName,
+      taxIdentifier: this.merchant.taxIdentifier,
+      email: this.merchant.email,
+      phone: this.merchant.phone,
+      address: this.merchant.address
+    };
   }
 
-  getCharges(): InvoiceChargeData[] {
-    return this.charges;
+  getLineItems(): InvoiceLineItemModel[] {
+    return [...this.lineItems];
+  }
+
+  getCharges(): InvoiceChargeModel[] {
+    return [...this.charges];
   }
 
   getTotal(): InvoiceTotalModel {
@@ -269,8 +372,50 @@ export default class InvoiceModel extends BaseModel {
       billingAddress: this.billingAddress.getDetails(),
       shippingAddress: this.shippingAddress.getDetails(),
       taxContext: this.taxContext,
-      lineItems: this.lineItems,
-      charges: this.charges,
+      merchant: {
+        merchantName: this.merchant.merchantName,
+        taxIdentifier: this.merchant.taxIdentifier,
+        email: this.merchant.email,
+        phone: this.merchant.phone,
+        address: this.merchant.address.getDetails()
+      },
+      lineItems: this.lineItems.map((item) => {
+        return {
+          ...item,
+          netUnitPrice: item.netUnitPrice.getDetails(),
+          netSubtotal: item.netSubtotal.getDetails(),
+          taxTotal: item.taxTotal.getDetails(),
+          grandTotal: item.grandTotal.getDetails(),
+          taxBreakdown: Object.fromEntries(
+            Object.entries(item.taxBreakdown).map(([systemKey, systemValue]) => [
+              systemKey,
+              {
+                ...systemValue,
+                taxableAmount: systemValue.taxableAmount.getDetails(),
+                taxAmount: systemValue.taxAmount.getDetails(),
+              },
+            ])
+          )
+        };
+      }),
+      charges: this.charges.map((charge) => {
+        return {
+          ...charge,
+          taxableValue: charge.taxableValue.getDetails(),
+          taxTotal: charge.taxTotal.getDetails(),
+          grandTotal: charge.grandTotal.getDetails(),
+          taxBreakdown: Object.fromEntries(
+            Object.entries(charge.taxBreakdown).map(([systemKey, systemValue]) => [
+              systemKey,
+              {
+                ...systemValue,
+                taxableAmount: systemValue.taxableAmount.getDetails(),
+                taxAmount: systemValue.taxAmount.getDetails(),
+              },
+            ])
+          )
+        };
+      }),
       total: {
         // Item Totals
         lineItemSubtotal: totals.lineItemSubtotal.getDetails(),

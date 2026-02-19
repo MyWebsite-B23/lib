@@ -331,8 +331,8 @@ export default class ChargeModel extends CustomFieldModel {
 	}
 
 	/**
-		* Updates the discounts applied to this line item and recalculates totals.
-		* @param appliedDiscounts - List of coupons and their allocated discount amounts.
+	 * Updates the discounts applied to this line item and recalculates totals.
+	 * @param appliedDiscounts - List of coupons and their allocated discount amounts.
 	*/
 	public updateDiscounts(appliedDiscounts: { coupon: CouponModel, amount: PriceModel }[]): void {
 		let chargeDiscounts = {} as Record<string, PriceModel>;
@@ -373,8 +373,8 @@ export default class ChargeModel extends CustomFieldModel {
 		}
 
 		// 2. Iteratively find a taxable base so that base + sum(rounded taxes) == gross
-		const currency = baseChargeAmount.getCurrency();
-		const grossValue = baseChargeAmount.getAmount();
+		const currency = netChargeAmount.getCurrency();
+		const grossValue = netChargeAmount.getAmount();
 		const maxIterations = 1000;
 
 		let baseValue = PriceModel.getRoundedAmount(grossValue / (1 + totalRate), currency);
