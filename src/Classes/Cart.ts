@@ -101,9 +101,11 @@ export default class CartModel extends BaseShoppingContainerModel {
   /**
    * Adds a new line item or updates the quantity of an existing one.
    * @param newLineItem The LineItemModel to add.
+   * @param addQuantity If true, adds the quantity from `subItem` to the existing quantity.
+   *                      If false, replaces the existing quantity with the one from `subItem`.
    * @returns The index of the added/updated line item in the internal array.
    */
-  public addLineItem(newLineItem: LineItemModel) {
+  public addLineItem(newLineItem: LineItemModel, addQuantity: boolean) {
     const productKey = newLineItem.getProductKey();
     const selectionAttributes = newLineItem.getSelectionAttributes();
     const selectionAttributeKey = ProductModel.generateSelectionAttributesKey(selectionAttributes);
@@ -112,7 +114,8 @@ export default class CartModel extends BaseShoppingContainerModel {
     );
 
     if (index >= 0) {
-      this.lineItems[index].addSubItems(newLineItem.getSubItems(), true);
+      newLineItem.addSubItems(this.lineItems[index].getSubItems(), addQuantity);
+      this.lineItems[index] = newLineItem;
     } else {
       this.lineItems.push(newLineItem);
     }
