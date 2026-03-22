@@ -61,7 +61,7 @@ export default class OrderModel extends BaseShoppingContainerModel {
    * @param date - Optional date for setting creation/modification times (defaults to now).
    */
   constructor(data: OrderAttributes, date: Date = new Date()) {
-    super(data, date);
+    super(data, date, { checkCouponExpiry: false }); // For Order, expired coupons should also be considered if already applied.
     this.orderNumber = data.orderNumber;
     this.cartId = data.cartId;
     this.paymentStatus = data.paymentStatus;
