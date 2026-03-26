@@ -152,7 +152,7 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
   protected country: CountryCode;
   protected currency: CurrencyCode;
   protected locale: LocaleCode;
-  private metaData: ShoppingContainerMetaData;
+  #metaData: ShoppingContainerMetaData;
 
   /**
    * Creates an instance of BaseShoppingContainerModel.
@@ -202,7 +202,7 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
       grandTotal: new PriceModel(data.total.grandTotal),
     };
 
-    this.metaData = {
+    this.#metaData = {
       checkCouponExpiry: metaData.checkCouponExpiry
     }
   }
@@ -520,7 +520,7 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
     let discountBreakdown: Record<string, PriceModel> = {};
     let nonShippingCouponTotal: Record<string, PriceModel> = {};
     this.coupons.forEach(coupon => {
-      const couponValue = coupon.calculateApplicableCouponDiscount(lineItemSubtotal, shippingCharges, this.country, this.currency, this.metaData.checkCouponExpiry);
+      const couponValue = coupon.calculateApplicableCouponDiscount(lineItemSubtotal, shippingCharges, this.country, this.currency, this.#metaData.checkCouponExpiry);
       discountTotal = discountTotal.add(couponValue);
       discountBreakdown[coupon.getCode()] = couponValue;
       if (coupon.getCategory() !== CouponCategory.SHIPPING) {
@@ -773,7 +773,7 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
   private applyNonShippingCoupons(applicableCoupons: CouponModel[]) {
     const coupons = applicableCoupons.filter(coupon => coupon.getType() === CouponType.COUPON);
     if (coupons.length === 1) {
-      const couponValue = coupons[0].calculateApplicableCouponDiscount(this.total.lineItemSubtotal, this.total.shippingCharges, this.country, this.currency, this.metaData.checkCouponExpiry);
+      const couponValue = coupons[0].calculateApplicableCouponDiscount(this.total.lineItemSubtotal, this.total.shippingCharges, this.country, this.currency, this.#metaData.checkCouponExpiry);
       if (couponValue.getAmount() > 0) {
         this.coupons.push(coupons[0]);
         this.total.discountTotal = couponValue;
@@ -794,8 +794,8 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
       const maxValuedCoupon = applicableCoupons.reduce((maxCoupon, currentCoupon) => {
         if (!maxCoupon) return currentCoupon;
 
-        const currentCouponValue = currentCoupon.calculateApplicableCouponDiscount(netLineItemSubtotal, this.total.shippingCharges, this.country, this.currency, this.metaData.checkCouponExpiry).min(this.total.shippingCharges);
-        const maxCouponValue = maxCoupon.calculateApplicableCouponDiscount(netLineItemSubtotal, this.total.shippingCharges, this.country, this.currency, this.metaData.checkCouponExpiry).min(this.total.shippingCharges);
+        const currentCouponValue = currentCoupon.calculateApplicableCouponDiscount(netLineItemSubtotal, this.total.shippingCharges, this.country, this.currency, this.#metaData.checkCouponExpiry).min(this.total.shippingCharges);
+        const maxCouponValue = maxCoupon.calculateApplicableCouponDiscount(netLineItemSubtotal, this.total.shippingCharges, this.country, this.currency, this.#metaData.checkCouponExpiry).min(this.total.shippingCharges);
 
         if (currentCouponValue.compareTo(maxCouponValue) === 0) {
           return currentCoupon.getType() === CouponType.COUPON ? currentCoupon : maxCoupon;
@@ -803,7 +803,7 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
         return currentCouponValue.compareTo(maxCouponValue) > 0 ? currentCoupon : maxCoupon;
       });
 
-      const couponValue = maxValuedCoupon.calculateApplicableCouponDiscount(netLineItemSubtotal, this.total.shippingCharges, this.country, this.currency, this.metaData.checkCouponExpiry).min(this.total.shippingCharges);
+      const couponValue = maxValuedCoupon.calculateApplicableCouponDiscount(netLineItemSubtotal, this.total.shippingCharges, this.country, this.currency, this.#metaData.checkCouponExpiry).min(this.total.shippingCharges);
       if (couponValue.getAmount() > 0) {
         this.coupons.push(maxValuedCoupon);
         this.total.discountTotal = this.total.discountTotal.add(couponValue);

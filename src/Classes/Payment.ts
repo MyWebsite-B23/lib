@@ -8,6 +8,7 @@ export enum PaymentStatus {
   FAILED = "FAILED",
   REFUNDED = "REFUNDED",
   PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED",
+  CANCELLED = "CANCELLED"
 }
 
 export enum PaymentMode {
