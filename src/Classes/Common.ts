@@ -83,5 +83,6 @@ export interface ShippingDetails {
   deliveryDate?: string;
   status?: string;
   rawApiData?: any;
+  codCharges?: number;
   [key: string]: any;
 }
