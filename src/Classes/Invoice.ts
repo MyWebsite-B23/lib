@@ -1,4 +1,4 @@
-import { ChargeImpact, ChargeType, TaxSystem } from "./Enum";
+import { ChargeImpact, ChargeType, InvoiceState, TaxSystem } from "./Enum";
 import PriceModel, { PriceData } from "./Price";
 import { CountryCode, CurrencyCode, LocaleCode, Prettify } from "./Common";
 import AddressModel, { AddressData } from "./Address";
@@ -122,6 +122,7 @@ export type InvoiceAttributes = Prettify<BaseAttributes & {
   lineItems: InvoiceLineItemData[];
   charges: InvoiceChargeData[];
   total: InvoiceTotal;
+  state: InvoiceState;
 }>;
 
 export type InvoiceData = Prettify<BaseData & InvoiceAttributes>;
@@ -142,10 +143,12 @@ export default class InvoiceModel extends BaseModel {
   protected lineItems: InvoiceLineItemModel[];
   protected charges: InvoiceChargeModel[];
   protected total: InvoiceTotalModel;
+  protected state: InvoiceState;
 
   constructor(data: InvoiceAttributes, date: Date = new Date()) {
     super(data, date);
     this.invoiceNumber = data.invoiceNumber;
+    this.state = data.state;
     this.orderNumber = data.orderNumber;
     this.issueDate = data.issueDate;
     this.country = data.country;
@@ -357,6 +360,10 @@ export default class InvoiceModel extends BaseModel {
     return this.total;
   }
 
+  getState(): InvoiceState {
+    return this.state;
+  }
+
   getDetails(): InvoiceData {
     const totals = this.getTotal();
     return {
@@ -372,6 +379,7 @@ export default class InvoiceModel extends BaseModel {
       billingAddress: this.billingAddress.getDetails(),
       shippingAddress: this.shippingAddress.getDetails(),
       taxContext: this.taxContext,
+      state: this.state,
       merchant: {
         merchantName: this.merchant.merchantName,
         taxIdentifier: this.merchant.taxIdentifier,

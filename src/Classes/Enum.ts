@@ -98,7 +98,33 @@ export enum LineItemState {
   CANCELLED = "CANCELLED",
   RETURN_REQUESTED = "RETURN_REQUESTED",
   RETURNED = "RETURNED",
+  UNDELIVERED = "UNDELIVERED",
   REFUND_INITIATED = "REFUND_INITIATED",
   REFUNDED = "REFUNDED",
   ON_HOLD = "ON_HOLD",
+}
+/**
+ * InvoiceState defines the lifecycle of a financial document.
+ */
+export enum InvoiceState {
+  /** Preliminary document being drafted; has no legal or financial impact yet. */
+  DRAFT = "DRAFT",
+
+  /** Legally finalized document sent to the customer; tax and revenue are recognized. */
+  ISSUED = "ISSUED",
+
+  /** 
+   * Cancelled before the document became legally effective or reached the customer.
+   * Used for Failed Deliveries (RTO) where the invoice was not yet reported to GST portals.
+   */
+  VOIDED = "VOIDED",
+
+  /**
+   * Officially reversed due to a sales return or refund after the document was legally finalized.
+   * Marks that the tax liability of this invoice has been nullified elsewhere.
+   */
+  CREDITED = "CREDITED",
+  
+  /** Marked once the invoice has been officially filed with tax authorities (e.g. GSTR-1). */
+  REPORTED = "REPORTED"
 }
