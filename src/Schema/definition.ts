@@ -147,6 +147,10 @@ export default {
           "type" : "string",
           "pattern": "^[0-9]{10}$"
       },
+      "e164Phone": {
+          "type" : "string",
+          "pattern": "^\\+[1-9]\\d{1,14}$"
+      },
       "email": { 
           "type" : "string",
           "pattern": "^[^\\s]+@[^\\s]+\\.[^\\s]+$"

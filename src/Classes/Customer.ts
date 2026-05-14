@@ -1,4 +1,5 @@
 import BaseModel, { BaseAttributes, BaseData } from "./Base";
+import { E164Phone } from "./Common";
 
 export enum CustomerStatus {
   CREATED = "CREATED",
@@ -13,7 +14,7 @@ export enum CustomerStatus {
 export type CustomerAttributes = BaseAttributes & {
   id: string;
   email: string;
-  phone?: string;
+  phone?: E164Phone;
   firstName: string;
   lastName: string;
   company?: string;
@@ -23,7 +24,7 @@ export type CustomerAttributes = BaseAttributes & {
 
 
 type CustomerDataWithArrayStatus = Omit<CustomerAttributes, 'customerStatus'> & BaseData & { customerStatus: CustomerStatus[]; }
-export type CustomerData = Required<Omit<CustomerDataWithArrayStatus, 'phone'>> & { phone?: string };
+export type CustomerData = Required<Omit<CustomerDataWithArrayStatus, 'phone'>> & { phone?: E164Phone };
 export type CustomerDataWithOutId = Omit<CustomerData, 'id'>;
 
 /**
@@ -32,7 +33,7 @@ export type CustomerDataWithOutId = Omit<CustomerData, 'id'>;
 export default class CustomerModel extends BaseModel {
   protected id: string;
   protected email: string;
-  protected phone?: string;
+  protected phone?: E164Phone;
   protected firstName: string;
   protected lastName: string;
   protected company: string;

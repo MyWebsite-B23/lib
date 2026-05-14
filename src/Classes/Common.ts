@@ -56,6 +56,12 @@ export type Color = {
  */
 export type ISODateTimeUTC = string;
 
+/**
+ * Represents a phone number in E.164 format (e.g., '+1234567890').
+ * Example: "+9122334455"
+ */
+export type E164Phone = string;
+
 export type RegionalPrice = {
   [country in CountryCode]?: PriceData;
 };
