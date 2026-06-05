@@ -592,17 +592,6 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
           targetBreakdown[system].subSystems[subsystem] = targetBreakdown[system].subSystems[subsystem].add(breakdown.taxAmount);
         }
         targetBreakdown[system].totalAmount = targetBreakdown[system].totalAmount.add(breakdown.taxAmount);
-
-        // Populate Combined taxBreakdown
-        if (!taxBreakdown[system]) {
-          taxBreakdown[system] = { system, totalAmount: zero, subSystems: {} };
-        }
-        if (!taxBreakdown[system].subSystems[subsystem]) {
-          taxBreakdown[system].subSystems[subsystem] = breakdown.taxAmount;
-        } else {
-          taxBreakdown[system].subSystems[subsystem] = taxBreakdown[system].subSystems[subsystem].add(breakdown.taxAmount);
-        }
-        taxBreakdown[system].totalAmount = taxBreakdown[system].totalAmount.add(breakdown.taxAmount);
       });
     };
 
