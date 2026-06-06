@@ -86,6 +86,7 @@ export type LineItemAttributes = CustomFieldAttributes & {
   id: string;
 
   productKey: string;
+  sku: string;
   selectionAttributes: SelectionAttributes;
 
   name: LocalizedString;
@@ -108,6 +109,7 @@ export type LineItemData = Required<LineItemAttributes>;
 export default class LineItemModel extends CustomFieldModel {
   protected id: string;
   protected productKey: string;
+  protected sku: string;
   protected selectionAttributes: SelectionAttributes;
 
   protected name: LocalizedString;
@@ -127,6 +129,7 @@ export default class LineItemModel extends CustomFieldModel {
     super(data);
     this.id = data.id;
     this.productKey = data.productKey;
+    this.sku = data.sku;
     this.selectionAttributes = Utils.deepClone(data.selectionAttributes);
 
     this.name = Utils.deepClone(data.name);
@@ -197,6 +200,14 @@ export default class LineItemModel extends CustomFieldModel {
    */
   getProductKey(): string {
     return this.productKey;
+  }
+
+  /**
+   * Gets the SKU of the line item.
+   * @returns The SKU string.
+   */
+  getSku(): string {
+    return this.sku;
   }
 
   /**
@@ -336,6 +347,7 @@ export default class LineItemModel extends CustomFieldModel {
     return {
       id: this.getId(),
       productKey: this.getProductKey(),
+      sku: this.getSku(),
       selectionAttributes: this.getSelectionAttributes(),
       name: this.getName(),
       specifications: this.getSpecifications(),
@@ -446,6 +458,7 @@ export default class LineItemModel extends CustomFieldModel {
     }
     this.name = product.getName();
     this.specifications = product.getSpecifications();
+    this.sku = product.getSku(this.selectionAttributes) as string;
     this.primaryImage = product.getImages(this.selectionAttributes).primary;
 
     const quantity = this.subItems.reduce((sum, s) => sum + s.quantity, 0);
@@ -578,6 +591,7 @@ export default class LineItemModel extends CustomFieldModel {
     const zero = this.pricing.unitPrice.zero()
     this.id = '';
     this.productKey = '';
+    this.sku = '';
     this.selectionAttributes = { color: { name: '' } };
     this.name = { en: '' };
     this.primaryImage = new ImageInfoModel({ sources: { original: '' } });

@@ -499,6 +499,19 @@ export default class ProductModel extends BaseModel {
   }
 
   /**
+   * Gets the SKU of the variant matching the selection attributes.
+   * @param selectionAttributes - The selection attributes to search for.
+   * @returns The SKU string, or undefined if no matching variant is found.
+   */
+  public getSku(selectionAttributes: SelectionAttributes): string | undefined {
+    const searchKey = ProductModel.generateSelectionAttributesKey(selectionAttributes);
+    const match = this.variants.find(variant =>
+      ProductModel.generateSelectionAttributesKey(variant.selectionAttributes) === searchKey
+    );
+    return match?.sku;
+  }
+
+  /**
    * Validates if the provided selection attributes exist for this product.
    * @param selectionAttributes - The attributes to validate.
    * @returns True if a valid selection attribute exists, false otherwise.
