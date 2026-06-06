@@ -25,6 +25,7 @@ export type InvoiceTaxBreakdownModel = {
 export type InvoiceLineItemData = {
   id: string;
   productKey: string;
+  sku: string;
   name: string;
   variantLabel: string;
   quantity: number;
@@ -40,6 +41,7 @@ export type InvoiceLineItemData = {
 export type InvoiceLineItemModel = {
   id: string;
   productKey: string;
+  sku: string;
   name: string;
   variantLabel: string;
   quantity: number;
@@ -266,78 +268,130 @@ export default class InvoiceModel extends BaseModel {
     );
   }
 
+  /**
+   * Gets the invoice number.
+   * @returns The invoice number string.
+   */
   getInvoiceNumber(): string {
     return this.invoiceNumber;
   }
 
+  /**
+   * Gets the order number associated with this invoice.
+   * @returns The order number string.
+   */
   getOrderNumber(): string {
     return this.orderNumber;
   }
 
+  /**
+   * Gets the issue date of this invoice.
+   * @returns The issue date string in ISO format.
+   */
   getIssueDate(): string {
     return this.issueDate;
   }
 
+  /**
+   * Gets the country code where the invoice is issued.
+   * @returns The CountryCode enum value.
+   */
   getCountry(): CountryCode {
     return this.country;
   }
 
+  /**
+   * Gets the currency code used in this invoice.
+   * @returns The CurrencyCode enum value.
+   */
   getCurrency(): CurrencyCode {
     return this.currency;
   }
 
+  /**
+   * Gets the locale code for the invoice display language/formatting.
+   * @returns The LocaleCode enum value.
+   */
   getLocale(): LocaleCode {
     return this.locale;
   }
 
+  /**
+   * Gets the ID of the customer associated with the invoice.
+   * @returns The customer ID string.
+   */
   getCustomerId(): string {
     return this.customerId;
   }
 
+  /**
+   * Gets the email address of the customer.
+   * @returns The customer email string.
+   */
   getCustomerEmail(): string {
     return this.customerEmail;
   }
 
+  /**
+   * Gets the tax context details for recipient and region.
+   * @returns A copy of the InvoiceTaxContextData object.
+   */
   getTaxContext(): InvoiceTaxContextData {
     return { ...this.taxContext };
   }
 
-  getTaxRegistrationNumber(): string {
-    return this.taxContext.recipientTaxIdentifier;
-  }
-
+  /**
+   * Gets the tax identifier of the recipient.
+   * @returns The recipient tax identifier string.
+   */
   getRecipientTaxIdentifier(): string {
     return this.taxContext.recipientTaxIdentifier;
   }
 
+  /**
+   * Gets the type of tax identifier used by the recipient.
+   * @returns The recipient tax identifier type string.
+   */
   getRecipientTaxIdentifierType(): string {
     return this.taxContext.recipientTaxIdentifierType;
   }
 
+  /**
+   * Gets the billing address model for this invoice.
+   * @returns The AddressModel instance for billing.
+   */
   getBillingAddress(): AddressModel {
     return this.billingAddress;
   }
 
+  /**
+   * Gets the shipping address model for this invoice.
+   * @returns The AddressModel instance for shipping.
+   */
   getShippingAddress(): AddressModel {
     return this.shippingAddress;
   }
 
-  getPlaceOfSupplyState(): string {
-    return this.taxContext.supplyRegion;
-  }
-
-  getPlaceOfSupplyCode(): string {
-    return this.taxContext.supplyRegionCode;
-  }
-
+  /**
+   * Gets the supply region name.
+   * @returns The supply region string.
+   */
   getSupplyRegion(): string {
     return this.taxContext.supplyRegion;
   }
 
+  /**
+   * Gets the supply region code.
+   * @returns The supply region code string.
+   */
   getSupplyRegionCode(): string {
     return this.taxContext.supplyRegionCode;
   }
 
+  /**
+   * Gets the merchant details for this invoice.
+   * @returns The MerchantModel details.
+   */
   getMerchant(): MerchantModel {
     return {
       merchantName: this.merchant.merchantName,
@@ -348,18 +402,34 @@ export default class InvoiceModel extends BaseModel {
     };
   }
 
+  /**
+   * Gets the line items of the invoice.
+   * @returns An array of InvoiceLineItemModel objects.
+   */
   getLineItems(): InvoiceLineItemModel[] {
     return [...this.lineItems];
   }
 
+  /**
+   * Gets the additional charges applied to the invoice.
+   * @returns An array of InvoiceChargeModel objects.
+   */
   getCharges(): InvoiceChargeModel[] {
     return [...this.charges];
   }
 
+  /**
+   * Gets the calculated totals of the invoice.
+   * @returns The InvoiceTotalModel object.
+   */
   getTotal(): InvoiceTotalModel {
     return this.total;
   }
 
+  /**
+   * Gets the current state of the invoice.
+   * @returns The InvoiceState enum value.
+   */
   getState(): InvoiceState {
     return this.state;
   }
