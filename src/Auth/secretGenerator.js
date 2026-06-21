@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Generates a secure random secret key for AES-256-CTR encryption.
@@ -10,5 +12,15 @@ function generateAES256CTRKey() {
 }
 
 // Example usage:
-const secretKey = generateAES256CTRKey();
-console.log('Generated AES-256-CTR Secret Key:', secretKey);
+if (require.main === module) {
+    const secretKey = generateAES256CTRKey();
+    try {
+        const secretKeyPath = path.join(process.cwd(), 'secret.key');
+        fs.writeFileSync(secretKeyPath, secretKey, 'utf8');
+        console.log(`Generated AES-256-CTR Secret Key saved to ${secretKeyPath}`);
+    } catch (err) {
+        console.error('Error writing secret key file:', err);
+    }
+}
+
+module.exports = { generateAES256CTRKey };
