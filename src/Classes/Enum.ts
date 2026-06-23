@@ -128,3 +128,8 @@ export enum InvoiceState {
   /** Marked once the invoice has been officially filed with tax authorities (e.g. GSTR-1). */
   REPORTED = "REPORTED"
 }
+
+export enum ProductType {
+  GOODS = 'GOODS',
+  SERVICE = 'SERVICE'
+}

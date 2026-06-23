@@ -1,7 +1,7 @@
 import Utils from "../Utils";
 import BaseModel, { BaseAttributes } from "./Base";
 import { Color, LocalizedString, CountryCode, LocaleCode, LocalizedValue, Prettify } from './Common';
-import { GenderCategory, ImageCategory, LocaleLanguageMap } from "./Enum";
+import { GenderCategory, ImageCategory, LocaleLanguageMap, ProductType } from "./Enum";
 import { DuplicateSelectionAttributeError, DuplicateSizeError, SelectionAttributeParseError } from "./Error";
 import ImageInfoModel, { ImageInfoData } from "./ImageInfo";
 import { TieredPriceModel, TieredPriceAttributes, TieredPriceData } from "./TieredPrice";
@@ -56,6 +56,7 @@ export type ProductAttributes = BaseAttributes & {
   attributes: ProductSelectionAttributes;
   specifications: LocalizedValue<ProductSpecification>;
   categories: string[];
+  productType?: ProductType;
 
   variants: VariantData[];
 
@@ -85,6 +86,7 @@ export default class ProductModel extends BaseModel {
   protected attributes: ProductSelectionAttributes;
   protected specifications: LocalizedValue<ProductSpecification>;
   protected categories: string[];
+  protected productType: ProductType;
 
   // Metadata
   protected isActive: boolean;
@@ -168,6 +170,7 @@ export default class ProductModel extends BaseModel {
     this.attributes = Utils.deepClone(data.attributes);
     this.specifications = Utils.deepClone(data.specifications);
     this.categories = Utils.deepClone(data.categories);
+    this.productType = data.productType ?? ProductType.GOODS;
 
     const uniqueSelectionAttributes = new Set<string>();
     this.variants = (data.variants || []).map(variant => {
@@ -381,6 +384,14 @@ export default class ProductModel extends BaseModel {
   }
 
   /**
+   * Gets the product type.
+   * @returns ProductType.
+   */
+  getProductType(): ProductType {
+    return this.productType;
+  }
+
+  /**
    * Gets the full localized product specifications object.
    * @returns Product Specifications
    */
@@ -449,6 +460,7 @@ export default class ProductModel extends BaseModel {
       isActive: this.getIsActive(),
       targetGender: this.getTargetGender(),
       categories: this.getCategories(),
+      productType: this.getProductType(),
       specifications: this.getSpecifications(),
       searchTags: this.getSearchTags(),
       ...baseDetails

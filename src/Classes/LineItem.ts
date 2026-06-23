@@ -1,7 +1,7 @@
 import Utils from "../Utils";
 import { Color, CountryCode, CurrencyCode, LocaleCode, LocalizedString, LocalizedValue } from "./Common";
 import CouponModel from "./Coupon";
-import { LineItemState, LocaleLanguageMap, TaxSystem } from "./Enum";
+import { LineItemState, LocaleLanguageMap, TaxSystem, ProductType } from "./Enum";
 import ImageInfoModel, { ImageInfoData } from "./ImageInfo";
 import PriceModel, { PriceData } from "./Price";
 import ProductModel, { ProductSelectionAttributes, ProductSpecification, SelectionAttributes } from "./Product";
@@ -98,6 +98,7 @@ export type LineItemAttributes = CustomFieldAttributes & {
   pricing: LineItemPricing;
 
   state?: LineItemState;
+  productType?: ProductType;
   total: LineItemTotals;
 }
 
@@ -119,6 +120,7 @@ export default class LineItemModel extends CustomFieldModel {
   protected pricing: LineItemPricingModel;
 
   protected state: LineItemState;
+  protected productType: ProductType;
   protected total: LineItemTotalsModel;
 
   /**
@@ -154,6 +156,7 @@ export default class LineItemModel extends CustomFieldModel {
     this.validateTaxRules(this.pricing.applicableTaxRule);
 
     this.state = data.state ?? LineItemState.INITIAL;
+    this.productType = data.productType ?? ProductType.GOODS;
 
     this.total = {
       quantity: data.total.quantity,
@@ -302,6 +305,14 @@ export default class LineItemModel extends CustomFieldModel {
   }
 
   /**
+   * Gets the product type.
+   * @returns ProductType.
+   */
+  getProductType(): ProductType {
+    return this.productType;
+  }
+
+  /**
    * Gets the total price for this line item (including all sub-items).
    * @returns An object containing line item totals including subtotal, tax, discounts, and grand total.
    */
@@ -360,6 +371,7 @@ export default class LineItemModel extends CustomFieldModel {
         applicableTaxRule: pricing.applicableTaxRule.map(rule => rule.getDetails()),
       },
       state: this.getState(),
+      productType: this.getProductType(),
       total: {
         quantity: total.quantity,
         unitPrice: total.unitPrice.getDetails(),
@@ -463,6 +475,8 @@ export default class LineItemModel extends CustomFieldModel {
 
     const quantity = this.subItems.reduce((sum, s) => sum + s.quantity, 0);
     const { unitPrice } = productPricing.getApplicableTier(quantity);
+
+    this.productType = product.getProductType();
 
     this.pricing = {
       unitPrice: unitPrice,
@@ -596,6 +610,7 @@ export default class LineItemModel extends CustomFieldModel {
     this.name = { en: '' };
     this.primaryImage = new ImageInfoModel({ sources: { original: '' } });
     this.subItems = [];
+    this.productType = ProductType.GOODS;
     this.pricing = {
       unitPrice: zero,
       tierPricing: this.pricing.tierPricing,
