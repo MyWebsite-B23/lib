@@ -1,4 +1,4 @@
-import { GenderCategory, OperationalCountry, OperationalCountryCurrency, OperationalLanguage, OperationalLocale } from "../Classes/Enum";
+import { GenderCategory, OperationalCountry, OperationalCountryCurrency, OperationalLanguage, OperationalLocale, ProductType } from "../Classes/Enum";
 import ProductModel from "../Classes/Product";
 
 export default {
@@ -93,6 +93,10 @@ export default {
       "productSku": {
         "type": "string",
         "pattern": ProductModel.productSKURegex.source
+      },
+      "productType": {
+        "type": "string",
+        "enum": Object.values(ProductType)
       },
       "genderCategory": {
         "type": "string",
