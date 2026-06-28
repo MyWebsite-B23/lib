@@ -18,6 +18,7 @@ import {
   InvalidLineItemTaxRuleError
 } from "./Error";
 import { CustomFieldAttributes, CustomFieldModel } from "./Base";
+import { extractExclusiveBase, calculateDistributedTaxes } from "../Utils/TaxMath";
 
 export type SubItem = {
   size: string | 'ONESIZE';
@@ -542,40 +543,77 @@ export default class LineItemModel extends CustomFieldModel {
       return;
     }
 
-    const { unitPrice } = this.pricing.tierPricing.getApplicableTier(totalQuantity);
-    const subTotal = unitPrice.multiply(totalQuantity);
+    const { unitPrice: tierUnitPrice } = this.pricing.tierPricing.getApplicableTier(totalQuantity);
+    
+    // Initial totals are treated as inclusive if the product is tax inclusive
+    const initialSubTotal = tierUnitPrice.multiply(totalQuantity);
     const totalDiscount = Object.values(this.total.discountBreakdown).reduce((sum, s) => sum.add(s), zero);
-    const netSubtotal = subTotal.subtract(totalDiscount);
-    const netUnitPrice = totalQuantity > 0 ? netSubtotal.divide(totalQuantity) : zero;
+    const initialNetSubtotal = initialSubTotal.subtract(totalDiscount);
+    const initialNetUnitPrice = totalQuantity > 0 ? initialNetSubtotal.divide(totalQuantity) : zero;
 
-    // Calculate tax for each applicable rule
     const taxBreakdown: Record<string, LineItemTaxBreakdownModel> = {};
     let taxTotal = zero;
-    this.pricing.applicableTaxRule.forEach(taxRule => {
-      const rate = taxRule.getApplicableTaxRate(netUnitPrice);
-      const taxPerUnit = taxRule.calculateTax(netUnitPrice);
-      const taxAmount = taxPerUnit.multiply(totalQuantity).round();
-      taxBreakdown[taxRule.getTaxRuleId()] = {
-        rate: rate,
-        taxableUnitPrice: netUnitPrice,
-        taxPerUnit: taxPerUnit,
-        taxAmount: taxAmount,
-        system: taxRule.getTaxSystem(),
-        subSystem: taxRule.getTaxSubSystem()
-      };
-      taxTotal = taxTotal.add(taxAmount);
-    });
+    
+    let finalUnitPrice = tierUnitPrice;
+    let finalSubTotal = initialSubTotal;
+    let finalNetSubtotal = initialNetSubtotal;
+    let finalNetUnitPrice = initialNetUnitPrice;
 
-    const grandTotal = netSubtotal.add(taxTotal);
+    if (this.pricing.tierPricing.getIsTaxInclusive()) {
+      // 1. Reverse calculate unit price for the base fields
+      finalUnitPrice = extractExclusiveBase(tierUnitPrice, this.pricing.applicableTaxRule);
+      finalSubTotal = finalUnitPrice.multiply(totalQuantity);
+
+      // 2. Reverse calculate net unit price and distribute taxes perfectly
+      if (initialNetUnitPrice.getAmount() > 0) {
+        finalNetUnitPrice = extractExclusiveBase(initialNetUnitPrice, this.pricing.applicableTaxRule);
+        finalNetSubtotal = finalNetUnitPrice.multiply(totalQuantity);
+
+        const distributedTaxes = calculateDistributedTaxes(finalNetUnitPrice, initialNetUnitPrice, this.pricing.applicableTaxRule);
+        
+        distributedTaxes.forEach(dt => {
+          const taxAmount = dt.taxAmount.multiply(totalQuantity).round();
+          const taxRule = this.pricing.applicableTaxRule.find(r => r.getTaxRuleId() === dt.ruleId)!;
+          
+          taxBreakdown[dt.ruleId] = {
+            rate: dt.rate,
+            taxableUnitPrice: finalNetUnitPrice,
+            taxPerUnit: dt.taxAmount,
+            taxAmount: taxAmount,
+            system: taxRule.getTaxSystem(),
+            subSystem: taxRule.getTaxSubSystem()
+          };
+          taxTotal = taxTotal.add(taxAmount);
+        });
+      }
+    } else {
+      // Standard exclusive tax calculation
+      this.pricing.applicableTaxRule.forEach(taxRule => {
+        const rate = taxRule.getApplicableTaxRate(finalNetUnitPrice);
+        const taxPerUnit = taxRule.calculateTax(finalNetUnitPrice);
+        const taxAmount = taxPerUnit.multiply(totalQuantity).round();
+        taxBreakdown[taxRule.getTaxRuleId()] = {
+          rate: rate,
+          taxableUnitPrice: finalNetUnitPrice,
+          taxPerUnit: taxPerUnit,
+          taxAmount: taxAmount,
+          system: taxRule.getTaxSystem(),
+          subSystem: taxRule.getTaxSubSystem()
+        };
+        taxTotal = taxTotal.add(taxAmount);
+      });
+    }
+
+    const grandTotal = finalNetSubtotal.add(taxTotal);
 
     this.total = {
       quantity: totalQuantity,
-      unitPrice: unitPrice,
-      subtotal: subTotal,
+      unitPrice: finalUnitPrice,
+      subtotal: finalSubTotal,
       discountTotal: totalDiscount,
       discountBreakdown: this.total.discountBreakdown,
-      netUnitPrice: netUnitPrice,
-      netSubtotal: netSubtotal,
+      netUnitPrice: finalNetUnitPrice,
+      netSubtotal: finalNetSubtotal,
       taxTotal: taxTotal,
       taxBreakdown: taxBreakdown,
       grandTotal: grandTotal

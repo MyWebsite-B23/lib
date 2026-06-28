@@ -21,6 +21,7 @@ export type PriceTier = {
 export type TieredPriceAttributes = {
   baseUnitPrice: PriceData;
   taxCategory: string;
+  isTaxInclusive?: boolean;
 
   /** Quantity-based pricing tiers */
   tiers: {
@@ -34,6 +35,7 @@ export type TieredPriceData = TieredPriceAttributes;
 export class TieredPriceModel {
   protected baseUnitPrice: PriceModel;
   protected taxCategory: string;
+  protected isTaxInclusive: boolean;
   protected tiers: PriceTier[];
 
   /** Constructor
@@ -82,6 +84,7 @@ export class TieredPriceModel {
 
     this.baseUnitPrice = baseUnitPrice;
     this.taxCategory = data.taxCategory;
+    this.isTaxInclusive = data.isTaxInclusive ?? false;
     this.tiers = tiers;
   }
 
@@ -101,6 +104,14 @@ export class TieredPriceModel {
     return this.taxCategory;
   }
 
+  /**
+   * Returns whether the price is tax inclusive
+   * @returns true if tax inclusive, false otherwise
+   */
+  getIsTaxInclusive(): boolean {
+    return this.isTaxInclusive;
+  }
+
   /** 
    * Returns all pricing tiers sorted by minimum quantity 
    * @returns An array of PriceTier objects.
@@ -116,6 +127,7 @@ export class TieredPriceModel {
     return {
       baseUnitPrice: this.baseUnitPrice.getDetails(),
       taxCategory: this.taxCategory,
+      isTaxInclusive: this.isTaxInclusive,
       tiers: this.tiers.map(tier => ({
         minQuantity: tier.minQuantity,
         unitPrice: tier.unitPrice.getDetails()

@@ -389,4 +389,14 @@ export default class PriceModel {
 
     return roundedValue;
   }
+
+  /**
+   * Helper method to determine smallest unit for a currency.
+   * @param currency - The currency code.
+   * @return The smallest unit value for the currency.
+   */
+  static getSmallestUnit(currency: CurrencyCode): number {
+    const precisionPlaces = PriceModel.getDecimalPlaces(currency);
+    return 1 / Math.pow(10, precisionPlaces);
+  }
 }

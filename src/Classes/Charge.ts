@@ -3,6 +3,7 @@ import Utils from "../Utils";
 import { LocaleCode, LocalizedString } from "./Common";
 import { ChargeImpact, ChargeType, LocaleLanguageMap, TaxSystem } from "./Enum";
 import { InvalidChargeTaxRuleError, InvalidChargeError, InvalidTaxRuleError } from "./Error";
+import { extractExclusiveBase, calculateDistributedTaxes } from "../Utils/TaxMath";
 import PriceModel, { PriceData } from "./Price";
 import { TaxRuleData, TaxRuleModel } from "./TaxRule";
 import CouponModel from "./Coupon";
@@ -372,58 +373,23 @@ export default class ChargeModel extends CustomFieldModel {
 			return;
 		}
 
-		// 2. Iteratively find a taxable base so that base + sum(rounded taxes) == gross
-		const currency = netChargeAmount.getCurrency();
-		const grossValue = netChargeAmount.getAmount();
-		const maxIterations = 1000;
-
-		let baseValue = PriceModel.getRoundedAmount(grossValue / (1 + totalRate), currency);
-		let bestBaseValue = baseValue;
-		let bestDiff = Number.POSITIVE_INFINITY;
-
-		for (let i = 0; i < maxIterations; i++) {
-			const currentTaxableBase = new PriceModel({ amount: baseValue, currency });
-			const taxes = this.pricing.applicableTaxRule
-				.sort((a, b) => b.getApplicableTaxRate(currentTaxableBase) - a.getApplicableTaxRate(currentTaxableBase))
-				.map(rule =>
-					PriceModel.getRoundedAmount(baseValue * rule.getApplicableTaxRate(currentTaxableBase), currency)
-				);
-
-			const taxSum = taxes.reduce((sum, v) => sum + v, 0);
-			const diff = (baseValue + taxSum) - grossValue;
-
-			const currentTotalRate = this.pricing.applicableTaxRule.reduce((sum, r) => sum + r.getApplicableTaxRate(currentTaxableBase), 0);
-
-			if (Math.abs(diff) < Math.abs(bestDiff)) {
-				bestDiff = diff;
-				bestBaseValue = baseValue;
-			}
-
-			if (diff === 0) break;
-			baseValue = baseValue - diff / (1 + currentTotalRate); // Adjust base value based on the difference
-			if (baseValue < 0 || baseValue > grossValue) break;
-		}
-
-		const taxableBase = new PriceModel({ amount: bestBaseValue, currency });
+		// 2. Extract exclusive base using TaxMath utility
+		const taxableBase = extractExclusiveBase(netChargeAmount, this.pricing.applicableTaxRule);
 
 		// 3. Compute tax amounts per rule based on final taxable base
-		let distributedTax = zero;
-		this.pricing.applicableTaxRule
-			.sort((a, b) => b.getApplicableTaxRate(taxableBase) - a.getApplicableTaxRate(taxableBase))
-			.forEach((taxRule) => {
-				const rate = taxRule.getApplicableTaxRate(taxableBase);
-				const taxAmountValue = PriceModel.getRoundedAmount(bestBaseValue * rate, currency);
-				const taxAmount = new PriceModel({ amount: taxAmountValue, currency });
-
-				taxBreakdown[taxRule.getTaxRuleId()] = {
-					rate: rate,
-					taxableAmount: taxableBase,
-					taxAmount: taxAmount,
-					system: taxRule.getTaxSystem(),
-					subSystem: taxRule.getTaxSubSystem()
-				};
-				distributedTax = distributedTax.add(taxAmount);
-			});
+		const distributedTaxes = calculateDistributedTaxes(taxableBase, netChargeAmount, this.pricing.applicableTaxRule);
+		let taxTotal = zero;
+		distributedTaxes.forEach(dt => {
+			const taxRule = this.pricing.applicableTaxRule.find(r => r.getTaxRuleId() === dt.ruleId)!;
+			taxBreakdown[dt.ruleId] = {
+				rate: dt.rate,
+				taxableAmount: taxableBase,
+				taxAmount: dt.taxAmount,
+				system: taxRule.getTaxSystem(),
+				subSystem: taxRule.getTaxSubSystem()
+			};
+			taxTotal = taxTotal.add(dt.taxAmount);
+		});
 
 		const grandTotal = netChargeAmount;
 		this.total = {
@@ -432,7 +398,7 @@ export default class ChargeModel extends CustomFieldModel {
 			discountBreakdown: this.total.discountBreakdown,
 			netChargeAmount: netChargeAmount,
 			taxBreakdown: taxBreakdown,
-			taxTotal: distributedTax,
+			taxTotal: taxTotal,
 			grandTotal: grandTotal
 		};
 	}
