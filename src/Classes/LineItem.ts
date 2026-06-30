@@ -150,7 +150,7 @@ export default class LineItemModel extends CustomFieldModel {
 
     this.pricing = {
       unitPrice: new PriceModel(data.pricing.unitPrice),
-      tierPricing: new TieredPriceModel(data.pricing.tierPricing),
+      tierPricing: TieredPriceModel.create(data.pricing.tierPricing),
       taxCategory: data.pricing.taxCategory,
       applicableTaxRule: data.pricing.applicableTaxRule.map(rule => new TaxRuleModel(rule)),
     }
@@ -466,7 +466,7 @@ export default class LineItemModel extends CustomFieldModel {
     });
 
     const productPricing = product.getPriceDetails(cartCountry);
-    if (!productPricing || productPricing.getBaseUnitPrice().getCurrency() !== cartCurrency) {
+    if (!productPricing || productPricing.getCurrency() !== cartCurrency) {
       throw new PricingNotFoundError();
     }
     this.name = product.getName();
@@ -475,7 +475,9 @@ export default class LineItemModel extends CustomFieldModel {
     this.primaryImage = product.getImages(this.selectionAttributes).primary;
 
     const quantity = this.subItems.reduce((sum, s) => sum + s.quantity, 0);
-    const { unitPrice } = productPricing.getApplicableTier(quantity);
+    
+    const unitPrice = productPricing.getApplicableUnitPrice(quantity, this.selectionAttributes);
+
 
     this.productType = product.getProductType();
 
@@ -543,7 +545,7 @@ export default class LineItemModel extends CustomFieldModel {
       return;
     }
 
-    const { unitPrice: tierUnitPrice } = this.pricing.tierPricing.getApplicableTier(totalQuantity);
+    const tierUnitPrice = this.pricing.tierPricing.getApplicableUnitPrice(totalQuantity, this.selectionAttributes);
     
     // Initial totals are treated as inclusive if the product is tax inclusive
     const initialSubTotal = tierUnitPrice.multiply(totalQuantity);

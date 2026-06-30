@@ -165,3 +165,10 @@ export class InvalidChargeTaxRuleError extends Error {
         this.name = 'InvalidChargeTaxRuleError';
     }
 }
+
+export class InvalidPricingTypeError extends Error {
+    constructor(message: string = "Invalid pricing type.") {
+        super(`InvalidPricingType: ${message}`);
+        this.name = 'InvalidPricingTypeError';
+    }
+}

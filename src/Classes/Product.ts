@@ -161,7 +161,7 @@ export default class ProductModel extends BaseModel {
 
     this.pricing = (Object.keys(data.pricing) as CountryCode[]).reduce((acc, country) => {
       if (data.pricing[country]) {
-        acc[country] = new TieredPriceModel(data.pricing[country]);
+        acc[country] = TieredPriceModel.create(data.pricing[country] as TieredPriceAttributes);
       }
       return acc;
     }, {} as { [country in CountryCode]?: TieredPriceModel });
