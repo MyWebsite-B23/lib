@@ -114,12 +114,16 @@ export abstract class TieredPriceModel {
     return this.isTaxInclusive;
   }
 
+  abstract isPriceAvailable(selectionAttributes?: SelectionAttributes): boolean;
   abstract getBaseUnitPrice(selectionAttributes?: SelectionAttributes): PriceModel;
   abstract getDetails(): TieredPriceData;
   abstract getCurrency(): string;
   abstract getApplicableUnitPrice(quantity: number, selectionAttributes?: SelectionAttributes): PriceModel;
   abstract getMinQuantity(selectionAttributes?: SelectionAttributes): number;
   abstract getMaxDiscountPercent(selectionAttributes?: SelectionAttributes): number;
+  abstract getTiers(selectionAttributes?: SelectionAttributes): PriceTier[];
+  abstract getMinPrice(selectionAttributes?: SelectionAttributes): PriceModel | null;
+  abstract getMaxPrice(selectionAttributes?: SelectionAttributes): PriceModel | null;
 }
 
 export class VolumeTieredPriceModel extends TieredPriceModel {
@@ -169,6 +173,10 @@ export class VolumeTieredPriceModel extends TieredPriceModel {
     this.tiers = tiers;
   }
 
+  isPriceAvailable(): boolean {
+    return this.tiers.filter(t => t.enabled).length > 0;
+  }
+
   getBaseUnitPrice(): PriceModel {
     return this.baseUnitPrice;
   }
@@ -207,6 +215,24 @@ export class VolumeTieredPriceModel extends TieredPriceModel {
     
     const discount = ((basePrice - minTierPrice) / basePrice) * 100;
     return discount > 0 ? discount : 0;
+  }
+
+  getMinPrice(): PriceModel | null {
+    const enabledTiers = this.tiers.filter(tier => tier.enabled);
+    return enabledTiers.length ? enabledTiers[enabledTiers.length - 1].unitPrice : null;
+  }
+
+  getMaxPrice(): PriceModel | null {
+    const enabledTiers = this.tiers.filter(tier => tier.enabled);
+    return enabledTiers.length ? enabledTiers[0].unitPrice : null;
+  }
+
+  getTiers(): PriceTier[] {
+    return this.tiers.map(tier => ({
+      enabled: tier.enabled,
+      minQuantity: tier.minQuantity,
+      unitPrice: tier.unitPrice
+    }));
   }
 
   getDetails(): TieredPriceData {
@@ -277,22 +303,32 @@ export class SelectionTieredPriceModel extends TieredPriceModel {
     });
   }
 
-  protected findMatch(selectionAttributes: SelectionAttributes): SelectionPricing {
+  protected findMatch(selectionAttributes: SelectionAttributes, throwOnNotFound = false): SelectionPricing | null {
     const key = ProductModel.generateSelectionAttributesKey(selectionAttributes);
     const match = this.selections.find(
       s => ProductModel.generateSelectionAttributesKey(s.selectionAttributes) === key
     );
-    if (!match) {
-      throw new InvalidTieredPriceError(`No pricing configuration found for selection variant.`);
+    if (!match && throwOnNotFound) {
+      throw new InvalidTieredPriceError("No pricing configuration found for selection variant.");
     }
-    return match;
+    return match ?? null;
+  }
+
+  isPriceAvailable(selectionAttributes?: SelectionAttributes): boolean {
+      if(!selectionAttributes) {
+        console.warn('Selection attributes are required to check price availability for selection pricing.');
+        return false;
+      }
+      const match = this.findMatch(selectionAttributes);
+      return match ? match.tiers.filter(t => t.enabled).length > 0 : false;
   }
 
   getBaseUnitPrice(selectionAttributes?: SelectionAttributes): PriceModel {
     if (!selectionAttributes) {
       throw new InvalidPricingTypeError("Selection attributes are required to get base unit price for selection pricing.");
     }
-    return this.findMatch(selectionAttributes).baseUnitPrice;
+    const match = this.findMatch(selectionAttributes, true)!;
+    return match.baseUnitPrice;
   }
 
   getCurrency(): string {
@@ -307,7 +343,7 @@ export class SelectionTieredPriceModel extends TieredPriceModel {
       throw new InvalidPricingTypeError("Selection attributes are required to get applicable unit price for selection pricing.");
     }
     
-    const match = this.findMatch(selectionAttributes);
+    const match = this.findMatch(selectionAttributes, true)!;
 
     const enabledTiers = match.tiers.filter(t => t.enabled);
     for (let i = enabledTiers.length - 1; i >= 0; i--) {
@@ -323,7 +359,7 @@ export class SelectionTieredPriceModel extends TieredPriceModel {
     if (!selectionAttributes) {
       throw new InvalidPricingTypeError("Selection attributes are required to get min quantity for selection pricing.");
     }
-    const match = this.findMatch(selectionAttributes);
+    const match = this.findMatch(selectionAttributes, true)!;
     const enabledTiers = match.tiers.filter(t => t.enabled);
     return enabledTiers[0]?.minQuantity ?? 1;
   }
@@ -332,7 +368,7 @@ export class SelectionTieredPriceModel extends TieredPriceModel {
     if (!selectionAttributes) {
       throw new InvalidPricingTypeError("Selection attributes are required to get max discount for selection pricing.");
     }
-    const match = this.findMatch(selectionAttributes);
+    const match = this.findMatch(selectionAttributes, true)!;
 
     const enabledTiers = match.tiers.filter(t => t.enabled);
     if (!enabledTiers.length) return 0;
@@ -342,6 +378,38 @@ export class SelectionTieredPriceModel extends TieredPriceModel {
     
     const discount = ((basePrice - minTierPrice) / basePrice) * 100;
     return discount > 0 ? discount : 0;
+  }
+
+  getTiers(selectionAttributes?: SelectionAttributes): PriceTier[] {
+    if (!selectionAttributes) {
+      throw new InvalidPricingTypeError("Selection attributes are required to get tiers for selection pricing.");
+    }
+    const match = this.findMatch(selectionAttributes, true)!;
+    return match.tiers.map(tier => ({
+      enabled: tier.enabled,
+      minQuantity: tier.minQuantity,
+      unitPrice: tier.unitPrice
+    }));
+  }
+
+  getMinPrice(selectionAttributes?: SelectionAttributes): PriceModel | null {
+    if (!selectionAttributes) {
+      throw new InvalidPricingTypeError("Selection attributes are required to get min price for selection pricing.");
+    }
+    const match = this.findMatch(selectionAttributes);
+    if (!match) return null;
+    const enabledTiers = match.tiers.filter(t => t.enabled);
+    return enabledTiers.length ? enabledTiers[enabledTiers.length - 1].unitPrice : null;
+  }
+
+  getMaxPrice(selectionAttributes?: SelectionAttributes): PriceModel | null {
+    if (!selectionAttributes) {
+      throw new InvalidPricingTypeError("Selection attributes are required to get max price for selection pricing.");
+    }
+    const match = this.findMatch(selectionAttributes);
+    if (!match) return null;
+    const enabledTiers = match.tiers.filter(t => t.enabled);
+    return enabledTiers.length ? enabledTiers[0].unitPrice : null;
   }
 
   getDetails(): TieredPriceData {

@@ -1,11 +1,13 @@
 import SchemaDefinitions from './definition';
-import TieredPriceSchema from './tieredPrice';
+import TieredPriceSchemaDefinitions from './tieredPrice';
 
 const Schema = {
   getStandardSchemaDefinition() {
     return SchemaDefinitions;
   },
-  TieredPriceSchema,
+  getTieredPriceSchemaDefinition() {
+    return TieredPriceSchemaDefinitions;
+  },
 }
 
 export default Schema;
