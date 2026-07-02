@@ -331,7 +331,7 @@ export class SelectionTieredPriceModel extends TieredPriceModel {
     return match.baseUnitPrice;
   }
 
-  getCurrency(): string {
+  getCurrency(): CurrencyCode {
     return this.currency;
   }
 
