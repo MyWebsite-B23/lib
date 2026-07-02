@@ -9,7 +9,7 @@ import {
   InvalidPricingTypeError,
   NoApplicableTierError
 } from "./Error";
-import { CurrencyCode, Prettify } from "./Common";
+import { CountryCode, CurrencyCode, Prettify } from "./Common";
 
 export enum PricingType {
   VOLUME = 'volume',
@@ -51,32 +51,43 @@ export type PriceTierAttributes = Prettify<Omit<PriceTierData, 'enabled'> & { en
 /**
  * Represents the attributes required for tiered pricing.
  */
-export type TieredPriceAttributes = Prettify<{
+export type VolumenTieredPriceAttributes = {
+  type?: PricingType.VOLUME;
   taxCategory: string;
   isTaxInclusive?: boolean;
-} & ({
   currency?: CurrencyCode;
-  type?: PricingType.VOLUME;
   baseUnitPrice: PriceData;
-  tiers?: PriceTierAttributes[];
-} | {
-  currency: CurrencyCode;
-  type: PricingType.SELECTION;
-  selections: (Omit<SelectionPricingData, 'tiers'> & { tiers?: PriceTierAttributes[] })[];
-})>;
+  tiers: PriceTierAttributes[];
+}
 
-export type TieredPriceData = Prettify<{
+export type SelectionTieredPriceAttributes = {
+  type: PricingType.SELECTION;
+  taxCategory: string;
+  isTaxInclusive?: boolean;
+  currency: CurrencyCode;
+  selections: (Omit<SelectionPricingData, 'tiers'> & { tiers?: PriceTierAttributes[] })[];
+}
+
+export type TieredPriceAttributes = VolumenTieredPriceAttributes | SelectionTieredPriceAttributes;
+
+export type VolumenTieredPriceData = {
+  type: PricingType.VOLUME;
   taxCategory: string;
   isTaxInclusive: boolean;
   currency: CurrencyCode;
-} & ({
-  type?: PricingType.VOLUME;
   baseUnitPrice: PriceData;
   tiers: PriceTierData[];
-} | {
+};
+
+export type SelectionTieredPriceData = {
   type: PricingType.SELECTION;
+  taxCategory: string;
+  isTaxInclusive: boolean;
+  currency: CurrencyCode;
   selections: SelectionPricingData[];
-})>;
+}
+
+export type TieredPriceData = VolumenTieredPriceData | SelectionTieredPriceData;
 
 export abstract class TieredPriceModel {
   protected type: PricingType;
@@ -117,7 +128,7 @@ export abstract class TieredPriceModel {
   abstract isPriceAvailable(selectionAttributes?: SelectionAttributes): boolean;
   abstract getBaseUnitPrice(selectionAttributes?: SelectionAttributes): PriceModel;
   abstract getDetails(): TieredPriceData;
-  abstract getCurrency(): string;
+  abstract getCurrency(): CurrencyCode;
   abstract getApplicableUnitPrice(quantity: number, selectionAttributes?: SelectionAttributes): PriceModel;
   abstract getMinQuantity(selectionAttributes?: SelectionAttributes): number;
   abstract getMaxDiscountPercent(selectionAttributes?: SelectionAttributes): number;
@@ -181,7 +192,7 @@ export class VolumeTieredPriceModel extends TieredPriceModel {
     return this.baseUnitPrice;
   }
 
-  getCurrency(): string {
+  getCurrency(): CurrencyCode {
     return this.baseUnitPrice.getCurrency();
   }
 
@@ -235,7 +246,7 @@ export class VolumeTieredPriceModel extends TieredPriceModel {
     }));
   }
 
-  getDetails(): TieredPriceData {
+  getDetails(): VolumenTieredPriceData {
     return {
       type: this.type as PricingType.VOLUME,
       taxCategory: this.taxCategory,
@@ -412,7 +423,7 @@ export class SelectionTieredPriceModel extends TieredPriceModel {
     return enabledTiers.length ? enabledTiers[0].unitPrice : null;
   }
 
-  getDetails(): TieredPriceData {
+  getDetails(): SelectionTieredPriceData {
     return {
       type: this.type as PricingType.SELECTION,
       taxCategory: this.taxCategory,

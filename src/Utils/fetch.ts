@@ -46,7 +46,6 @@ const Fetch = async (
   }
 
   const completeURL = `${baseURL}${endpoint ? ('/' + endpoint) : ''}`;
-  const isInternalAPI = completeURL.includes('api.xetile.com') || completeURL.includes('localhost');
   
   try {
     const response: any = await fetch(completeURL, options);
@@ -78,7 +77,7 @@ const Fetch = async (
     return {
       status: response.status,
       statusText: response.statusText,
-      data: isInternalAPI ? body.data : body,
+      data: body,
     } as SuccessType;
   } catch (err: any) {
     
