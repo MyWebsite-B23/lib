@@ -340,9 +340,9 @@ class AuthUtility {
 
     if(authenticate) {
       const response = await Fetch(payload.verifier as string, '', 'POST', {}, { token, permissions });
-      assert(response.data.isTokenValid === true, ErrorTypes.INVALID_TOKEN);
+      assert(response.data.data.isTokenValid === true, ErrorTypes.INVALID_TOKEN);
   
-      if(response.data.hasPermissions !== true){
+      if(response.data.data.hasPermissions !== true){
         throw ResponseUtility.generateError(403, ErrorTypes.INVALID_PERMISSIONS)
       }
     }
