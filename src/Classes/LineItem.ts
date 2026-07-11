@@ -18,7 +18,7 @@ import {
   InvalidLineItemTaxRuleError
 } from "./Error";
 import { CustomFieldAttributes, CustomFieldModel } from "./Base";
-import { extractExclusiveBase, calculateDistributedTaxes } from "../Utils/TaxMath";
+import { calculateDualViewTotals } from "../Utils/TaxMath";
 
 export type SubItem = {
   size: string | 'ONESIZE';
@@ -59,27 +59,43 @@ export type LineItemTaxBreakdownModel = {
 
 export type LineItemTotals = {
   quantity: number;
-  unitPrice: PriceData;              // original unit price (from tier pricing)
-  subtotal: PriceData;               // unitPrice × quantity
   discountTotal: PriceData;          // sum of all discounts
   discountBreakdown: Record<string, PriceData>; // couponCode -> discount mapping
-  netUnitPrice: PriceData;           // unit price after discounts
-  netSubtotal: PriceData;            // subtotal - totalDiscount (taxable amount)
   taxTotal: PriceData;               // sum of all tax amounts
   taxBreakdown: Record<string, LineItemTaxBreakdown>; // tax breakdown by tax rule
-  grandTotal: PriceData;             // effectiveSubtotal + taxTotal
+  taxExclusive: {
+    unitPrice: PriceData;
+    subtotal: PriceData;
+    netUnitPrice: PriceData;
+    netSubtotal: PriceData;
+  };
+  taxInclusive: {
+    unitPrice: PriceData;
+    subtotal: PriceData;
+    netUnitPrice: PriceData;
+    netSubtotal: PriceData;
+  };
+  grandTotal: PriceData;
 };
 
 export type LineItemTotalsModel = {
   quantity: number;
-  unitPrice: PriceModel;
-  subtotal: PriceModel;
   discountTotal: PriceModel;
   discountBreakdown: Record<string, PriceModel>;
-  netUnitPrice: PriceModel;
-  netSubtotal: PriceModel;
   taxTotal: PriceModel;
   taxBreakdown: Record<string, LineItemTaxBreakdownModel>;
+  taxExclusive: {
+    unitPrice: PriceModel;
+    subtotal: PriceModel;
+    netUnitPrice: PriceModel;
+    netSubtotal: PriceModel;
+  };
+  taxInclusive: {
+    unitPrice: PriceModel;
+    subtotal: PriceModel;
+    netUnitPrice: PriceModel;
+    netSubtotal: PriceModel;
+  };
   grandTotal: PriceModel;
 };
 
@@ -161,8 +177,6 @@ export default class LineItemModel extends CustomFieldModel {
 
     this.total = {
       quantity: data.total.quantity,
-      unitPrice: new PriceModel(data.total.unitPrice),
-      subtotal: new PriceModel(data.total.subtotal),
       discountTotal: new PriceModel(data.total.discountTotal),
       discountBreakdown: Object.fromEntries(
         Object.entries(data.total.discountBreakdown).map(([couponCode, discount]) => [
@@ -170,8 +184,6 @@ export default class LineItemModel extends CustomFieldModel {
           new PriceModel(discount),
         ])
       ),
-      netUnitPrice: new PriceModel(data.total.netUnitPrice),
-      netSubtotal: new PriceModel(data.total.netSubtotal),
       taxTotal: new PriceModel(data.total.taxTotal),
       taxBreakdown: Object.fromEntries(
         Object.entries(data.total.taxBreakdown).map(([taxRuleId, taxBreakdown]) => [
@@ -186,6 +198,18 @@ export default class LineItemModel extends CustomFieldModel {
           }
         ])
       ),
+      taxExclusive: {
+        unitPrice: new PriceModel(data.total.taxExclusive.unitPrice),
+        subtotal: new PriceModel(data.total.taxExclusive.subtotal),
+        netUnitPrice: new PriceModel(data.total.taxExclusive.netUnitPrice),
+        netSubtotal: new PriceModel(data.total.taxExclusive.netSubtotal),
+      },
+      taxInclusive: {
+        unitPrice: new PriceModel(data.total.taxInclusive.unitPrice),
+        subtotal: new PriceModel(data.total.taxInclusive.subtotal),
+        netUnitPrice: new PriceModel(data.total.taxInclusive.netUnitPrice),
+        netSubtotal: new PriceModel(data.total.taxInclusive.netSubtotal),
+      },
       grandTotal: new PriceModel(data.total.grandTotal),
     }
   }
@@ -320,8 +344,6 @@ export default class LineItemModel extends CustomFieldModel {
   getTotal(): LineItemTotalsModel {
     return {
       quantity: this.total.quantity,
-      unitPrice: this.total.unitPrice,
-      subtotal: this.total.subtotal,
       discountTotal: this.total.discountTotal,
       discountBreakdown: Object.fromEntries(
         Object.entries(this.total.discountBreakdown).map(([couponCode, discount]) => [
@@ -329,8 +351,6 @@ export default class LineItemModel extends CustomFieldModel {
           discount,
         ])
       ),
-      netUnitPrice: this.total.netUnitPrice,
-      netSubtotal: this.total.netSubtotal,
       taxTotal: this.total.taxTotal,
       taxBreakdown: Object.fromEntries(
         Object.entries(this.total.taxBreakdown).map(([taxRuleId, taxBreakdown]) => [
@@ -345,6 +365,18 @@ export default class LineItemModel extends CustomFieldModel {
           }
         ])
       ),
+      taxExclusive: {
+        unitPrice: this.total.taxExclusive.unitPrice,
+        subtotal: this.total.taxExclusive.subtotal,
+        netUnitPrice: this.total.taxExclusive.netUnitPrice,
+        netSubtotal: this.total.taxExclusive.netSubtotal,
+      },
+      taxInclusive: {
+        unitPrice: this.total.taxInclusive.unitPrice,
+        subtotal: this.total.taxInclusive.subtotal,
+        netUnitPrice: this.total.taxInclusive.netUnitPrice,
+        netSubtotal: this.total.taxInclusive.netSubtotal,
+      },
       grandTotal: this.total.grandTotal,
     };
   }
@@ -375,8 +407,6 @@ export default class LineItemModel extends CustomFieldModel {
       productType: this.getProductType(),
       total: {
         quantity: total.quantity,
-        unitPrice: total.unitPrice.getDetails(),
-        subtotal: total.subtotal.getDetails(),
         discountTotal: total.discountTotal.getDetails(),
         discountBreakdown: Object.fromEntries(
           Object.entries(total.discountBreakdown).map(([couponCode, discount]) => [
@@ -384,8 +414,6 @@ export default class LineItemModel extends CustomFieldModel {
             discount.getDetails(),
           ])
         ),
-        netUnitPrice: total.netUnitPrice.getDetails(),
-        netSubtotal: total.netSubtotal.getDetails(),
         taxTotal: total.taxTotal.getDetails(),
         taxBreakdown: Object.fromEntries(
           Object.entries(total.taxBreakdown).map(([taxRuleId, taxBreakdown]) => [
@@ -400,6 +428,18 @@ export default class LineItemModel extends CustomFieldModel {
             }
           ])
         ),
+        taxExclusive: {
+          unitPrice: total.taxExclusive.unitPrice.getDetails(),
+          subtotal: total.taxExclusive.subtotal.getDetails(),
+          netUnitPrice: total.taxExclusive.netUnitPrice.getDetails(),
+          netSubtotal: total.taxExclusive.netSubtotal.getDetails(),
+        },
+        taxInclusive: {
+          unitPrice: total.taxInclusive.unitPrice.getDetails(),
+          subtotal: total.taxInclusive.subtotal.getDetails(),
+          netUnitPrice: total.taxInclusive.netUnitPrice.getDetails(),
+          netSubtotal: total.taxInclusive.netSubtotal.getDetails(),
+        },
         grandTotal: total.grandTotal.getDetails(),
       },
       customFields: this.getAllCustomFields()
@@ -532,93 +572,77 @@ export default class LineItemModel extends CustomFieldModel {
     if (this.state === LineItemState.CANCELLED) {
       this.total = {
         quantity: 0,
-        unitPrice: zero,
-        subtotal: zero,
         discountTotal: zero,
         discountBreakdown: {},
-        netUnitPrice: zero,
-        netSubtotal: zero,
         taxTotal: zero,
         taxBreakdown: {},
-        grandTotal: zero
+        taxExclusive: {
+          unitPrice: zero,
+          subtotal: zero,
+          netUnitPrice: zero,
+          netSubtotal: zero,
+        },
+        taxInclusive: {
+          unitPrice: zero,
+          subtotal: zero,
+          netUnitPrice: zero,
+          netSubtotal: zero,
+        },
+        grandTotal: zero,
       };
       return;
     }
 
     const tierUnitPrice = this.pricing.tierPricing.getApplicableUnitPrice(totalQuantity, this.selectionAttributes);
-    
-    // Initial totals are treated as inclusive if the product is tax inclusive
-    const initialSubTotal = tierUnitPrice.multiply(totalQuantity);
-    const totalDiscount = Object.values(this.total.discountBreakdown).reduce((sum, s) => sum.add(s), zero);
-    const initialNetSubtotal = initialSubTotal.subtract(totalDiscount);
-    const initialNetUnitPrice = totalQuantity > 0 ? initialNetSubtotal.divide(totalQuantity) : zero;
+    const isProductInclusive = this.pricing.tierPricing.getIsTaxInclusive();
 
+    const totalDiscount = Object.values(this.total.discountBreakdown).reduce((sum, s) => sum.add(s), zero);
+    const discountPerUnit = totalQuantity > 0 ? totalDiscount.divide(totalQuantity) : zero;
+
+    // Calculate dual-view at per-unit level (no cent misses on unit prices)
+    const perUnit = calculateDualViewTotals(tierUnitPrice, discountPerUnit, isProductInclusive, this.pricing.applicableTaxRule);
+
+    // Tax breakdown: per-unit values are exact, total tax is scaled by quantity
     const taxBreakdown: Record<string, LineItemTaxBreakdownModel> = {};
     let taxTotal = zero;
-    
-    let finalUnitPrice = tierUnitPrice;
-    let finalSubTotal = initialSubTotal;
-    let finalNetSubtotal = initialNetSubtotal;
-    let finalNetUnitPrice = initialNetUnitPrice;
+    perUnit.taxBreakdown.forEach(entry => {
+      const taxAmount = entry.taxAmount.multiply(totalQuantity).round();
+      taxBreakdown[entry.ruleId] = {
+        rate: entry.rate,
+        taxableUnitPrice: entry.taxableAmount,
+        taxPerUnit: entry.taxAmount,
+        taxAmount,
+        system: entry.system,
+        subSystem: entry.subSystem,
+      };
+      taxTotal = taxTotal.add(taxAmount);
+    });
 
-    if (this.pricing.tierPricing.getIsTaxInclusive()) {
-      // 1. Reverse calculate unit price for the base fields
-      finalUnitPrice = extractExclusiveBase(tierUnitPrice, this.pricing.applicableTaxRule);
-      finalSubTotal = finalUnitPrice.multiply(totalQuantity);
-
-      // 2. Reverse calculate net unit price and distribute taxes perfectly
-      if (initialNetUnitPrice.getAmount() > 0) {
-        finalNetUnitPrice = extractExclusiveBase(initialNetUnitPrice, this.pricing.applicableTaxRule);
-        finalNetSubtotal = finalNetUnitPrice.multiply(totalQuantity);
-
-        const distributedTaxes = calculateDistributedTaxes(finalNetUnitPrice, initialNetUnitPrice, this.pricing.applicableTaxRule);
-        
-        distributedTaxes.forEach(dt => {
-          const taxAmount = dt.taxAmount.multiply(totalQuantity).round();
-          const taxRule = this.pricing.applicableTaxRule.find(r => r.getTaxRuleId() === dt.ruleId)!;
-          
-          taxBreakdown[dt.ruleId] = {
-            rate: dt.rate,
-            taxableUnitPrice: finalNetUnitPrice,
-            taxPerUnit: dt.taxAmount,
-            taxAmount: taxAmount,
-            system: taxRule.getTaxSystem(),
-            subSystem: taxRule.getTaxSubSystem()
-          };
-          taxTotal = taxTotal.add(taxAmount);
-        });
-      }
-    } else {
-      // Standard exclusive tax calculation
-      this.pricing.applicableTaxRule.forEach(taxRule => {
-        const rate = taxRule.getApplicableTaxRate(finalNetUnitPrice);
-        const taxPerUnit = taxRule.calculateTax(finalNetUnitPrice);
-        const taxAmount = taxPerUnit.multiply(totalQuantity).round();
-        taxBreakdown[taxRule.getTaxRuleId()] = {
-          rate: rate,
-          taxableUnitPrice: finalNetUnitPrice,
-          taxPerUnit: taxPerUnit,
-          taxAmount: taxAmount,
-          system: taxRule.getTaxSystem(),
-          subSystem: taxRule.getTaxSubSystem()
-        };
-        taxTotal = taxTotal.add(taxAmount);
-      });
-    }
-
-    const grandTotal = finalNetSubtotal.add(taxTotal);
+    // Scale per-unit results to totals
+    const subtotalExcl = perUnit.taxExclusive.baseAmount.multiply(totalQuantity);
+    const netSubtotalExcl = perUnit.taxExclusive.netAmount.multiply(totalQuantity);
+    const subtotalIncl = perUnit.taxInclusive.baseAmount.multiply(totalQuantity);
+    const grandTotal = netSubtotalExcl.add(taxTotal);
 
     this.total = {
       quantity: totalQuantity,
-      unitPrice: finalUnitPrice,
-      subtotal: finalSubTotal,
       discountTotal: totalDiscount,
       discountBreakdown: this.total.discountBreakdown,
-      netUnitPrice: finalNetUnitPrice,
-      netSubtotal: finalNetSubtotal,
-      taxTotal: taxTotal,
-      taxBreakdown: taxBreakdown,
-      grandTotal: grandTotal
+      taxTotal,
+      taxBreakdown,
+      taxExclusive: {
+        unitPrice: perUnit.taxExclusive.baseAmount,
+        subtotal: subtotalExcl,
+        netUnitPrice: perUnit.taxExclusive.netAmount,
+        netSubtotal: netSubtotalExcl,
+      },
+      taxInclusive: {
+        unitPrice: perUnit.taxInclusive.baseAmount,
+        subtotal: subtotalIncl,
+        netUnitPrice: perUnit.taxInclusive.netAmount,
+        netSubtotal: grandTotal,
+      },
+      grandTotal: grandTotal,
     };
   }
 
@@ -634,6 +658,13 @@ export default class LineItemModel extends CustomFieldModel {
     } else {
       throw new InvalidLineItemStateError(newState);
     }
+  }
+
+  /**
+   * Gets whether the line item's price is tax inclusive.
+   */
+  public getIsTaxInclusive(): boolean {
+    return this.pricing.tierPricing.getIsTaxInclusive();
   }
 
   /**
@@ -659,15 +690,23 @@ export default class LineItemModel extends CustomFieldModel {
     }
     this.total = {
       quantity: 0,
-      unitPrice: zero,
-      subtotal: zero,
       discountTotal: zero,
       discountBreakdown: {},
-      netUnitPrice: zero,
-      netSubtotal: zero,
       taxTotal: zero,
       taxBreakdown: {},
-      grandTotal: zero
+      taxExclusive: {
+        unitPrice: zero,
+        subtotal: zero,
+        netUnitPrice: zero,
+        netSubtotal: zero,
+      },
+      taxInclusive: {
+        unitPrice: zero,
+        subtotal: zero,
+        netUnitPrice: zero,
+        netSubtotal: zero,
+      },
+      grandTotal: zero,
     };
   }
 }

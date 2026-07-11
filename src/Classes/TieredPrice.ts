@@ -165,6 +165,10 @@ export class VolumeTieredPriceModel extends TieredPriceModel {
       throw new InvalidMinQuantityError();
     }
 
+    if(this.baseUnitPrice.isZero() || tiers[0]?.unitPrice.isZero()) {
+      throw new InvalidTieredPriceError("Base unit price and tier unit price must not be zero.");
+    }
+
     const hasDifferentCurrency = this.baseUnitPrice.getCurrency() !== this.currency || tiers.some(
       t => t.unitPrice.getCurrency() !== this.currency
     );
@@ -288,6 +292,10 @@ export class SelectionTieredPriceModel extends TieredPriceModel {
       const hasInvalidMinQuantity = tiers.some(t => t.minQuantity <= 0);
       if (hasInvalidMinQuantity) {
         throw new InvalidMinQuantityError();
+      }
+
+      if(baseUnitPrice.isZero() || tiers[0]?.unitPrice.isZero()) {
+        throw new InvalidTieredPriceError("Base unit price and tier unit price must not be zero.");
       }
 
       const hasDifferentCurrency = baseUnitPrice.getCurrency() !== this.currency || tiers.some(

@@ -37,20 +37,12 @@ export type ShoppingContainerTaxBreakdownModel = Record<string, TaxSystemBreakdo
  */
 export type ShoppingContainerTotal = {
   // --- Item Totals ---
-  /** Sum of all line item prices before any discounts or taxes */
-  lineItemSubtotal: PriceData;
-  /** Total item subtotal after item-level discounts have been applied (taxable base for items) */
-  netLineItemSubtotal: PriceData;
   /** Total tax collected specifically from line items */
   lineItemTaxTotal: PriceData;
   /** Granular tax breakdown for all line items */
   lineItemTaxBreakdown: Record<string, TaxSystemBreakdown>;
 
   // --- Charge Totals ---
-  /** Sum of pre-discount chargeAmount for additive charges (tax-inclusive) */
-  additiveCharges: PriceData;
-  /** Sum of post-discount netChargeAmount for additive charges – final payable (tax-inclusive) */
-  netAdditiveCharges: PriceData;
   /** Tax reverse-calculated from additive charges only */
   additiveChargesTaxTotal: PriceData;
   /** Granular tax breakdown from additive charges */
@@ -58,11 +50,6 @@ export type ShoppingContainerTotal = {
 
   /** Sum of post-discount netChargeAmount for subtractive charges – absolute amount to subtract */
   adjustmentCharges:  PriceData;
-
-  /** Pre-discount shipping gross (tax-inclusive, part of additive charges) */
-  shippingCharges: PriceData;
-  /** Shipping cost after any shipping-specific discounts */
-  netShippingCharges: PriceData;
 
   // --- Aggregate Totals ---
   /** Combined total tax (lineItemTaxTotal + chargeTaxTotal) */
@@ -73,7 +60,23 @@ export type ShoppingContainerTotal = {
   discountTotal: PriceData;
   /** Map of applied coupon codes to their calculated discount amounts */
   discountBreakdown: Record<string, PriceData>;
-  /** Final total amount to be paid (NetSubtotal + ChargesTotal + TaxTotal - (any remaining discounts)) */
+
+  taxExclusive: {
+    lineItemSubtotal: PriceData;
+    netLineItemSubtotal: PriceData;
+    additiveCharges: PriceData;
+    netAdditiveCharges: PriceData;
+    shippingCharges: PriceData;
+    netShippingCharges: PriceData;
+  };
+  taxInclusive: {
+    lineItemSubtotal: PriceData;
+    netLineItemSubtotal: PriceData;
+    additiveCharges: PriceData;
+    netAdditiveCharges: PriceData;
+    shippingCharges: PriceData;
+    netShippingCharges: PriceData;
+  };
   grandTotal: PriceData;
 };
 
@@ -82,25 +85,35 @@ export type ShoppingContainerTotal = {
  * Internal model version of ShoppingContainerTotal using PriceModel instances.
  */
 export type ShoppingContainerTotalModel = {
-  lineItemSubtotal: PriceModel;
-  netLineItemSubtotal: PriceModel;
   lineItemTaxTotal: PriceModel;
   lineItemTaxBreakdown: Record<string, TaxSystemBreakdownModel>;
 
-  additiveCharges: PriceModel;
-  netAdditiveCharges: PriceModel;
   additiveChargesTaxTotal: PriceModel;
   additiveChargesTaxBreakdown: Record<string, TaxSystemBreakdownModel>;
 
   adjustmentCharges: PriceModel;
 
-  shippingCharges: PriceModel;
-  netShippingCharges: PriceModel;
-
   taxTotal: PriceModel;
   taxBreakdown: Record<string, TaxSystemBreakdownModel>;
   discountTotal: PriceModel;
   discountBreakdown: Record<string, PriceModel>;
+
+  taxExclusive: {
+    lineItemSubtotal: PriceModel;
+    netLineItemSubtotal: PriceModel;
+    additiveCharges: PriceModel;
+    netAdditiveCharges: PriceModel;
+    shippingCharges: PriceModel;
+    netShippingCharges: PriceModel;
+  };
+  taxInclusive: {
+    lineItemSubtotal: PriceModel;
+    netLineItemSubtotal: PriceModel;
+    additiveCharges: PriceModel;
+    netAdditiveCharges: PriceModel;
+    shippingCharges: PriceModel;
+    netShippingCharges: PriceModel;
+  };
   grandTotal: PriceModel;
 };
 
@@ -178,19 +191,12 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
     this.shippingDetails = data.shippingDetails ? Utils.deepClone(data.shippingDetails) : null;
 
     this.total = {
-      lineItemSubtotal: new PriceModel(data.total.lineItemSubtotal),
-      netLineItemSubtotal: new PriceModel(data.total.netLineItemSubtotal),
       lineItemTaxTotal: new PriceModel(data.total.lineItemTaxTotal),
       lineItemTaxBreakdown: this.mapTaxBreakdown(data.total.lineItemTaxBreakdown),
 
-      additiveCharges: new PriceModel(data.total.additiveCharges),
-      netAdditiveCharges: new PriceModel(data.total.netAdditiveCharges),
       additiveChargesTaxTotal: new PriceModel(data.total.additiveChargesTaxTotal),
-
       additiveChargesTaxBreakdown: this.mapTaxBreakdown(data.total.additiveChargesTaxBreakdown),
       adjustmentCharges: new PriceModel(data.total.adjustmentCharges),
-      shippingCharges: new PriceModel(data.total.shippingCharges),
-      netShippingCharges: new PriceModel(data.total.netShippingCharges),
 
       discountTotal: new PriceModel(data.total.discountTotal),
       discountBreakdown: Object.fromEntries(
@@ -199,6 +205,23 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
 
       taxTotal: new PriceModel(data.total.taxTotal),
       taxBreakdown: this.mapTaxBreakdown(data.total.taxBreakdown),
+
+      taxExclusive: {
+        lineItemSubtotal: new PriceModel(data.total.taxExclusive.lineItemSubtotal),
+        netLineItemSubtotal: new PriceModel(data.total.taxExclusive.netLineItemSubtotal),
+        additiveCharges: new PriceModel(data.total.taxExclusive.additiveCharges),
+        netAdditiveCharges: new PriceModel(data.total.taxExclusive.netAdditiveCharges),
+        shippingCharges: new PriceModel(data.total.taxExclusive.shippingCharges),
+        netShippingCharges: new PriceModel(data.total.taxExclusive.netShippingCharges),
+      },
+      taxInclusive: {
+        lineItemSubtotal: new PriceModel(data.total.taxInclusive.lineItemSubtotal),
+        netLineItemSubtotal: new PriceModel(data.total.taxInclusive.netLineItemSubtotal),
+        additiveCharges: new PriceModel(data.total.taxInclusive.additiveCharges),
+        netAdditiveCharges: new PriceModel(data.total.taxInclusive.netAdditiveCharges),
+        shippingCharges: new PriceModel(data.total.taxInclusive.shippingCharges),
+        netShippingCharges: new PriceModel(data.total.taxInclusive.netShippingCharges),
+      },
       grandTotal: new PriceModel(data.total.grandTotal),
     };
 
@@ -399,8 +422,6 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
    */
   public getTotal() {
     return {
-      lineItemSubtotal: this.total.lineItemSubtotal,
-      netLineItemSubtotal: this.total.netLineItemSubtotal,
       lineItemTaxTotal: this.total.lineItemTaxTotal,
       lineItemTaxBreakdown: Object.fromEntries(
         Object.entries(this.total.lineItemTaxBreakdown).map(([systemKey, systemValue]) => [
@@ -412,8 +433,6 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
           }
         ])
       ),
-      additiveCharges: this.total.additiveCharges,
-      netAdditiveCharges : this.total.netAdditiveCharges,
       additiveChargesTaxTotal: this.total.additiveChargesTaxTotal,
       additiveChargesTaxBreakdown: Object.fromEntries(
         Object.entries(this.total.additiveChargesTaxBreakdown).map(([systemKey, systemValue]) => [
@@ -426,8 +445,6 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
         ])
       ),
       adjustmentCharges: this.total.adjustmentCharges,
-      shippingCharges: this.total.shippingCharges,
-      netShippingCharges: this.total.netShippingCharges,
       discountBreakdown: { ...this.total.discountBreakdown },
       discountTotal: this.total.discountTotal,
       taxTotal: this.total.taxTotal,
@@ -441,6 +458,22 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
           }
         ])
       ),
+      taxExclusive: {
+        lineItemSubtotal: this.total.taxExclusive.lineItemSubtotal,
+        netLineItemSubtotal: this.total.taxExclusive.netLineItemSubtotal,
+        additiveCharges: this.total.taxExclusive.additiveCharges,
+        netAdditiveCharges: this.total.taxExclusive.netAdditiveCharges,
+        shippingCharges: this.total.taxExclusive.shippingCharges,
+        netShippingCharges: this.total.taxExclusive.netShippingCharges,
+      },
+      taxInclusive: {
+        lineItemSubtotal: this.total.taxInclusive.lineItemSubtotal,
+        netLineItemSubtotal: this.total.taxInclusive.netLineItemSubtotal,
+        additiveCharges: this.total.taxInclusive.additiveCharges,
+        netAdditiveCharges: this.total.taxInclusive.netAdditiveCharges,
+        shippingCharges: this.total.taxInclusive.shippingCharges,
+        netShippingCharges: this.total.taxInclusive.netShippingCharges,
+      },
       grandTotal: this.total.grandTotal,
     };
   }
@@ -466,21 +499,14 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
       coupons: this.getCoupons().map(coupon => coupon.getDetails()),
       total: {
         // Item Totals
-        lineItemSubtotal: totals.lineItemSubtotal.getDetails(),
-        netLineItemSubtotal: totals.netLineItemSubtotal.getDetails(),
         lineItemTaxTotal: totals.lineItemTaxTotal.getDetails(),
         lineItemTaxBreakdown: this.serializeTaxBreakdown(totals.lineItemTaxBreakdown),
 
         // Charge Totals
-        additiveCharges: totals.additiveCharges.getDetails(),
-        netAdditiveCharges: totals.netAdditiveCharges.getDetails(),
         additiveChargesTaxTotal: totals.additiveChargesTaxTotal.getDetails(),
         additiveChargesTaxBreakdown: this.serializeTaxBreakdown(totals.additiveChargesTaxBreakdown),
 
         adjustmentCharges: totals.adjustmentCharges.getDetails(),
-
-        shippingCharges: totals.shippingCharges.getDetails(),
-        netShippingCharges: totals.netShippingCharges.getDetails(),
 
         // Aggregate Totals
         discountTotal: totals.discountTotal.getDetails(),
@@ -489,6 +515,23 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
         ),
         taxTotal: totals.taxTotal.getDetails(),
         taxBreakdown: this.serializeTaxBreakdown(totals.taxBreakdown),
+
+        taxExclusive: {
+          lineItemSubtotal: totals.taxExclusive.lineItemSubtotal.getDetails(),
+          netLineItemSubtotal: totals.taxExclusive.netLineItemSubtotal.getDetails(),
+          additiveCharges: totals.taxExclusive.additiveCharges.getDetails(),
+          netAdditiveCharges: totals.taxExclusive.netAdditiveCharges.getDetails(),
+          shippingCharges: totals.taxExclusive.shippingCharges.getDetails(),
+          netShippingCharges: totals.taxExclusive.netShippingCharges.getDetails(),
+        },
+        taxInclusive: {
+          lineItemSubtotal: totals.taxInclusive.lineItemSubtotal.getDetails(),
+          netLineItemSubtotal: totals.taxInclusive.netLineItemSubtotal.getDetails(),
+          additiveCharges: totals.taxInclusive.additiveCharges.getDetails(),
+          netAdditiveCharges: totals.taxInclusive.netAdditiveCharges.getDetails(),
+          shippingCharges: totals.taxInclusive.shippingCharges.getDetails(),
+          netShippingCharges: totals.taxInclusive.netShippingCharges.getDetails(),
+        },
         grandTotal: totals.grandTotal.getDetails(),
       },
       country: this.getCountry(),
@@ -499,150 +542,156 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
 
   /**
    * Recalculates the total costs for the shopping container.
-   * This includes summing line items, calculating shipping, applying coupons, and computing taxes.
+   * This orchestrates computing base totals, applying active coupons, and aggregating the final net results.
    */
   public calculateTotals(): void {
     const zero = new PriceModel({ amount: 0, currency: this.currency });
-    
-    // 1. Calculate LineItem subtotals and Shipping Cost
-    const filteredLineItems = this.lineItems.filter(lineitem => lineitem.getState() !== LineItemState.CANCELLED);
-    const lineItemSubtotal = filteredLineItems.reduce((total, lineItem) => total.add(lineItem.getTotal().subtotal), zero);
-    const shippingCharges = this.charges
-      .filter(charge => charge.getType() === ChargeType.SHIPPING)
-      .reduce((total, charge) => total.add(charge.getTotal().chargeAmount), zero);
 
-    // 1.1 Assign lineitemSubTotal and shipping charges to total, which will be used for coupon calculations
-    this.total.lineItemSubtotal = lineItemSubtotal;
-    this.total.shippingCharges = shippingCharges;
+    // Step 1: Initialize baseline totals for all active items and charges.
+    // We clear any existing discounts so we can evaluate base subtotals accurately.
+    this.lineItems.forEach(li => {
+      if (li.getState() !== LineItemState.CANCELLED) li.updateDiscounts([]);
+    });
+    this.charges.forEach(charge => charge.updateDiscounts([]));
 
-    // 2. Calculate coupon values based on gross subtotal & shipping
+    // Step 2: Evaluate Non-Shipping Coupons on gross subtotals
+    const bases = this.getCouponEvaluationBases();
     let discountTotal = zero;
     let discountBreakdown: Record<string, PriceModel> = {};
     let nonShippingCouponTotal: Record<string, PriceModel> = {};
-    this.coupons.forEach(coupon => {
-      const couponValue = coupon.calculateApplicableCouponDiscount(lineItemSubtotal, shippingCharges, this.country, this.currency, this.#metaData.checkCouponExpiry);
+
+    const nonShippingCoupons = this.coupons.filter(c => c.getCategory() !== CouponCategory.SHIPPING);
+    nonShippingCoupons.forEach(coupon => {
+      const couponValue = coupon.calculateApplicableCouponDiscount(bases.targetSubtotal, bases.targetShipping, this.country, this.currency, this.#metaData.checkCouponExpiry);
       discountTotal = discountTotal.add(couponValue);
       discountBreakdown[coupon.getCode()] = couponValue;
-      if (coupon.getCategory() !== CouponCategory.SHIPPING) {
-        nonShippingCouponTotal[coupon.getCode()] = couponValue;
-      }
-    })
+      nonShippingCouponTotal[coupon.getCode()] = couponValue;
+    });
 
-    // 2.1. Assign discount total and breakdown to total
-    this.total.discountTotal = discountTotal;
-    this.total.discountBreakdown = discountBreakdown;
-
-    // 3. Apply discounts at lineitem and shipping charges
+    // Step 3: Distribute Non-Shipping Coupons
+    // This internally recalculates the net subtotals and taxes for line items.
     this.applyDiscountsInLineItem(nonShippingCouponTotal);
 
-    const shippingCoupon = this.coupons.find(coupon => coupon.getCategory() === CouponCategory.SHIPPING);
-    if(shippingCoupon) {
-      this.applyDiscountsInShippingCharges({[shippingCoupon.getCode()] : discountBreakdown[shippingCoupon.getCode()] || zero});
-    } else {
-      // If no shipping coupon, ensure any previous discounts on shipping charges are cleared
-      this.applyDiscountsInShippingCharges({});
-    }
+    // Step 4: Evaluate Shipping Coupons using dynamically updated Net Subtotals
+    const updatedBases = this.getCouponEvaluationBases();
+    let shippingCouponTotal: Record<string, PriceModel> = {};
+    
+    const shippingCoupons = this.coupons.filter(c => c.getCategory() === CouponCategory.SHIPPING);
+    shippingCoupons.forEach(coupon => {
+      const couponValue = coupon.calculateApplicableCouponDiscount(updatedBases.targetNetSubtotal, updatedBases.targetShipping, this.country, this.currency, this.#metaData.checkCouponExpiry).min(updatedBases.targetShipping);
+      discountTotal = discountTotal.add(couponValue);
+      discountBreakdown[coupon.getCode()] = couponValue;
+      shippingCouponTotal[coupon.getCode()] = couponValue;
+    });
 
-    // 3.1 Calculate net lineitemSubtotal and net shipping after discount
-    const netLineItemSubtotal = this.lineItems.reduce((total, lineItem) => total.add(lineItem.getTotal().netSubtotal), zero);
-    const netShippingCharges = this.charges
-      .filter(charge => charge.getType() === ChargeType.SHIPPING)
-      .reduce((total, charge) => total.add(charge.getTotal().grandTotal), zero);
+    // Step 5: Distribute Shipping Coupons
+    this.applyDiscountsInShippingCharges(shippingCouponTotal);
 
-    // 3.2 Assign net lineitemSubtotal and net shipping to total
-    this.total.netLineItemSubtotal = netLineItemSubtotal;
-    this.total.netShippingCharges = netShippingCharges;
-
-    // 4. Calculate charges and net charges after discount
-    const additiveCharges = this.charges
-      .filter(charge => charge.getImpact() === ChargeImpact.ADD)
-      .reduce((total, charge) => total.add(charge.getTotal().chargeAmount), zero);
-    const netAdditiveCharges = this.charges
-      .filter(charge => charge.getImpact() === ChargeImpact.ADD)
-      .reduce((total, charge) => total.add(charge.getTotal().grandTotal), zero);
-    const adjustmentCharges = this.charges
-      .filter(charge => charge.getImpact() === ChargeImpact.SUBTRACT)
-      .reduce((total, charge) => total.add(charge.getTotal().grandTotal), zero);
-
-    // 5. Aggregate Taxes & Grand Total from all items and charges
-    let taxTotal = zero;
+    // Step 6: Aggregate everything into `this.total`
     let lineItemTaxTotal = zero;
     let additiveChargesTaxTotal = zero;
+
+    let lineItemSubtotalExcl = zero;
+    let netLineItemSubtotalExcl = zero;
+    let lineItemSubtotalIncl = zero;
+    let netLineItemSubtotalIncl = zero;
 
     const taxBreakdown: ShoppingContainerTaxBreakdownModel = {};
     const lineItemTaxBreakdown: ShoppingContainerTaxBreakdownModel = {};
     const additiveChargesTaxBreakdown: ShoppingContainerTaxBreakdownModel = {};
 
-    // Helper to merge tax breakdowns into hierarchical structure
-    const mergeTax = (
-      sourceBreakdown: Record<string, LineItemTaxBreakdownModel | ChargeTaxBreakdownModel>,
-      targetBreakdown: ShoppingContainerTaxBreakdownModel
-    ) => {
-      Object.entries(sourceBreakdown).forEach(([ruleId, breakdown]) => {
-        const system = breakdown.system;
-        const subsystem = breakdown.subSystem;
-
-        // Populate Target Breakdown
-        if (!targetBreakdown[system]) {
-          targetBreakdown[system] = { system, totalAmount: zero, subSystems: {} };
-        }
-        if (!targetBreakdown[system].subSystems[subsystem]) {
-          targetBreakdown[system].subSystems[subsystem] = breakdown.taxAmount;
-        } else {
-          targetBreakdown[system].subSystems[subsystem] = targetBreakdown[system].subSystems[subsystem].add(breakdown.taxAmount);
-        }
-        targetBreakdown[system].totalAmount = targetBreakdown[system].totalAmount.add(breakdown.taxAmount);
+    const mergeTax = (source: Record<string, LineItemTaxBreakdownModel | ChargeTaxBreakdownModel>, target: ShoppingContainerTaxBreakdownModel) => {
+      Object.entries(source).forEach(([_, breakdown]) => {
+        const { system, subSystem, taxAmount } = breakdown;
+        if (!target[system]) target[system] = { system, totalAmount: zero, subSystems: {} };
+        if (!target[system].subSystems[subSystem]) target[system].subSystems[subSystem] = taxAmount;
+        else target[system].subSystems[subSystem] = target[system].subSystems[subSystem].add(taxAmount);
+        target[system].totalAmount = target[system].totalAmount.add(taxAmount);
       });
     };
 
-    // 5.1 Merge line item taxes
-    filteredLineItems.forEach(lineItem => {
-      const lineItemTaxes = lineItem.getTotal().taxBreakdown;
-      if (lineItemTaxes) {
-        mergeTax(lineItemTaxes, lineItemTaxBreakdown);
-        mergeTax(lineItemTaxes, taxBreakdown);
-        lineItemTaxTotal = lineItemTaxTotal.add(lineItem.getTotal().taxTotal);
+    const filteredLineItems = this.lineItems.filter(li => li.getState() !== LineItemState.CANCELLED);
+    filteredLineItems.forEach(li => {
+      const t = li.getTotal();
+      lineItemSubtotalExcl = lineItemSubtotalExcl.add(t.taxExclusive.subtotal);
+      netLineItemSubtotalExcl = netLineItemSubtotalExcl.add(t.taxExclusive.netSubtotal);
+      lineItemSubtotalIncl = lineItemSubtotalIncl.add(t.taxInclusive.subtotal);
+      netLineItemSubtotalIncl = netLineItemSubtotalIncl.add(t.taxInclusive.netSubtotal);
+
+      if (t.taxBreakdown) {
+        mergeTax(t.taxBreakdown, lineItemTaxBreakdown);
+        mergeTax(t.taxBreakdown, taxBreakdown);
+        lineItemTaxTotal = lineItemTaxTotal.add(t.taxTotal);
       }
     });
 
-    // 5.2 Merge charge taxes
+    let additiveChargesExcl = zero;
+    let netAdditiveChargesExcl = zero;
+    let additiveChargesIncl = zero;
+    let netAdditiveChargesIncl = zero;
+
+    let shippingChargesExcl = zero;
+    let netShippingChargesExcl = zero;
+    let shippingChargesIncl = zero;
+    let netShippingChargesIncl = zero;
+
+    let adjustmentChargesIncl = zero;
+
     this.charges.forEach(charge => {
-      const chargeTaxes = charge.getTotal().taxBreakdown;
-      if (chargeTaxes) {
-        mergeTax(chargeTaxes, additiveChargesTaxBreakdown);
-        mergeTax(chargeTaxes, taxBreakdown);
-        additiveChargesTaxTotal = additiveChargesTaxTotal.add(charge.getTotal().taxTotal);
+      const t = charge.getTotal();
+      if (charge.getImpact() === ChargeImpact.ADD) {
+        additiveChargesExcl = additiveChargesExcl.add(t.taxExclusive.chargeAmount);
+        netAdditiveChargesExcl = netAdditiveChargesExcl.add(t.taxExclusive.netChargeAmount);
+        additiveChargesIncl = additiveChargesIncl.add(t.taxInclusive.chargeAmount);
+        netAdditiveChargesIncl = netAdditiveChargesIncl.add(t.grandTotal);
+
+        if (charge.getType() === ChargeType.SHIPPING) {
+          shippingChargesExcl = shippingChargesExcl.add(t.taxExclusive.chargeAmount);
+          netShippingChargesExcl = netShippingChargesExcl.add(t.taxExclusive.netChargeAmount);
+          shippingChargesIncl = shippingChargesIncl.add(t.taxInclusive.chargeAmount);
+          netShippingChargesIncl = netShippingChargesIncl.add(t.grandTotal);
+        }
+
+        if (t.taxBreakdown) {
+          mergeTax(t.taxBreakdown, additiveChargesTaxBreakdown);
+          mergeTax(t.taxBreakdown, taxBreakdown);
+          additiveChargesTaxTotal = additiveChargesTaxTotal.add(t.taxTotal);
+        }
+      } else if (charge.getImpact() === ChargeImpact.SUBTRACT) {
+        adjustmentChargesIncl = adjustmentChargesIncl.add(t.grandTotal);
       }
     });
 
-    // 5.3 Calculate total tax
-    taxTotal = lineItemTaxTotal.add(additiveChargesTaxTotal);
+    const taxTotal = lineItemTaxTotal.add(additiveChargesTaxTotal);
+    const grandTotal = netLineItemSubtotalIncl.add(netAdditiveChargesIncl).subtract(adjustmentChargesIncl);
 
-    // 6. Final Grand Total: netLineItemSubtotal + lineItemTaxTotal + netAdditiveCharges (includes netShippingCharges) - adjustmentCharges
-    const grandTotal = netLineItemSubtotal.add(lineItemTaxTotal).add(netAdditiveCharges).subtract(adjustmentCharges);
-
-
-    // 7. Reconstruct total object
     this.total = {
-      lineItemSubtotal: lineItemSubtotal,
-      netLineItemSubtotal: netLineItemSubtotal,
-      lineItemTaxTotal: lineItemTaxTotal,
-      lineItemTaxBreakdown: lineItemTaxBreakdown,
-
-      additiveCharges: additiveCharges,
-      netAdditiveCharges: netAdditiveCharges,
-      additiveChargesTaxTotal: additiveChargesTaxTotal,
-      additiveChargesTaxBreakdown: additiveChargesTaxBreakdown,
-
-      adjustmentCharges: adjustmentCharges,
-      shippingCharges: shippingCharges,
-      netShippingCharges: netShippingCharges,
-
-      discountTotal: discountTotal,
-      discountBreakdown: discountBreakdown,
-      taxTotal: taxTotal,
-      taxBreakdown: taxBreakdown,
-      grandTotal: grandTotal,
+      lineItemTaxTotal,
+      lineItemTaxBreakdown,
+      additiveChargesTaxTotal,
+      additiveChargesTaxBreakdown,
+      adjustmentCharges: adjustmentChargesIncl,
+      discountTotal,
+      discountBreakdown,
+      taxTotal,
+      taxBreakdown,
+      taxExclusive: {
+        lineItemSubtotal: lineItemSubtotalExcl,
+        netLineItemSubtotal: netLineItemSubtotalExcl,
+        additiveCharges: additiveChargesExcl,
+        netAdditiveCharges: netAdditiveChargesExcl,
+        shippingCharges: shippingChargesExcl,
+        netShippingCharges: netShippingChargesExcl,
+      },
+      taxInclusive: {
+        lineItemSubtotal: lineItemSubtotalIncl,
+        netLineItemSubtotal: netLineItemSubtotalIncl,
+        additiveCharges: additiveChargesIncl,
+        netAdditiveCharges: netAdditiveChargesIncl,
+        shippingCharges: shippingChargesIncl,
+        netShippingCharges: netShippingChargesIncl,
+      },
+      grandTotal,
     };
   }
 
@@ -666,7 +715,7 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
     const otherCoupons = applicableCoupons.filter(coupon => coupon.getCategory() !== CouponCategory.SHIPPING);
 
     this.coupons = [];
-    this.total.discountTotal = this.total.lineItemSubtotal.zero();
+    this.total.discountTotal = this.total.discountTotal.zero();
     this.total.discountBreakdown = {};
     // Apply non shipping coupons
     otherCoupons.length && this.applyNonShippingCoupons(otherCoupons);
@@ -693,18 +742,28 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
       const coupon = this.coupons.find(c => c.getCode() === code);
       if (!coupon || discountTotal.isZero()) return;
 
+      const targetSubtotal = this.lineItems.reduce(
+        (total, lineItem) => total.add(lineItem.getIsTaxInclusive() ? lineItem.getTotal().taxInclusive.subtotal : lineItem.getTotal().taxExclusive.subtotal),
+        new PriceModel({ amount: 0, currency: this.currency })
+      );
+
       const validItems = this.lineItems
-        .filter(li => li.getState() !== LineItemState.CANCELLED && !li.getTotal().subtotal.isZero())
-        .sort((a, b) => a.getTotal().subtotal.compareTo(b.getTotal().subtotal));
+        .filter(li => li.getState() !== LineItemState.CANCELLED && !li.getTotal().taxExclusive.subtotal.isZero())
+        .sort((a, b) => {
+          const aVal = a.getIsTaxInclusive() ? a.getTotal().taxInclusive.subtotal : a.getTotal().taxExclusive.subtotal;
+          const bVal = b.getIsTaxInclusive() ? b.getTotal().taxInclusive.subtotal : b.getTotal().taxExclusive.subtotal;
+          return aVal.compareTo(bVal);
+        });
 
       let distributed = new PriceModel({ amount: 0, currency: this.currency });
 
       validItems.forEach((item, index) => {
         let amount: PriceModel;
+        const itemVal = item.getIsTaxInclusive() ? item.getTotal().taxInclusive.subtotal : item.getTotal().taxExclusive.subtotal;
         if (index === validItems.length - 1) {
           amount = discountTotal.subtract(distributed);
         } else {
-          amount = discountTotal.multiply(item.getTotal().subtotal).divide(this.total.lineItemSubtotal).round();
+          amount = discountTotal.multiply(itemVal).divide(targetSubtotal).round();
         }
         distributed = distributed.add(amount);
         itemDiscounts.get(item.getId())?.push({ coupon, amount });
@@ -712,11 +771,7 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
     });
 
     this.lineItems.forEach(lineItem => {
-      if (lineItem.getState() === LineItemState.CANCELLED || this.total.lineItemSubtotal.isZero()) {
-        lineItem.updateDiscounts([]);
-      } else {
-        lineItem.updateDiscounts(itemDiscounts.get(lineItem.getId()) || []);
-      }
+      lineItem.updateDiscounts(itemDiscounts.get(lineItem.getId())!);
     });
   }
 
@@ -732,17 +787,28 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
       const coupon = this.coupons.find(c => c.getCode() === code);
       if (!coupon || discountTotal.isZero()) return;
 
+      const targetShipping = shippingCharges.reduce(
+        (total, charge) => total.add(charge.getIsTaxInclusive() ? charge.getTotal().taxInclusive.chargeAmount : charge.getTotal().taxExclusive.chargeAmount),
+        new PriceModel({ amount: 0, currency: this.currency })
+      );
+
       const validCharges = shippingCharges
-        .sort((a, b) => a.getTotal().grandTotal.compareTo(b.getTotal().grandTotal));
+        .filter(charge => !charge.getTotal().taxExclusive.chargeAmount.isZero())
+        .sort((a, b) => {
+          const aVal = a.getIsTaxInclusive() ? a.getTotal().taxInclusive.chargeAmount : a.getTotal().taxExclusive.chargeAmount;
+          const bVal = b.getIsTaxInclusive() ? b.getTotal().taxInclusive.chargeAmount : b.getTotal().taxExclusive.chargeAmount;
+          return aVal.compareTo(bVal);
+        });
 
       let distributed = new PriceModel({ amount: 0, currency: this.currency });
 
       validCharges.forEach((charge, index) => {
         let amount: PriceModel;
+        const chargeVal = charge.getIsTaxInclusive() ? charge.getTotal().taxInclusive.chargeAmount : charge.getTotal().taxExclusive.chargeAmount;
         if (index === validCharges.length - 1) {
           amount = discountTotal.subtract(distributed);
         } else {
-          amount = discountTotal.multiply(charge.getTotal().chargeAmount).divide(this.total.shippingCharges).round();
+          amount = discountTotal.multiply(chargeVal).divide(targetShipping).round();
         }
         distributed = distributed.add(amount);
         chargeDiscounts.get(charge.getId())?.push({ coupon, amount });
@@ -750,8 +816,38 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
     });
 
     shippingCharges.forEach(charge => {
-      charge.updateDiscounts(chargeDiscounts.get(charge.getId()) || []);
+      charge.updateDiscounts(chargeDiscounts.get(charge.getId())!);
     });
+  }
+
+  /**
+   * Helper to resolve the correct evaluation basis for line items and shipping charges.
+   * If any item in a group is tax-inclusive, the inclusive total is used for the entire group.
+   * Otherwise, the exclusive total is used.
+   */
+  private getCouponEvaluationBases() {
+    const zero = new PriceModel({ amount: 0, currency: this.currency });
+    const activeItems = this.lineItems.filter(li => li.getState() !== LineItemState.CANCELLED);
+    const shippingCharges = this.charges.filter(charge => charge.getType() === ChargeType.SHIPPING);
+
+    const isAnyItemInclusive = activeItems.some(li => li.getIsTaxInclusive());
+    const targetSubtotal = activeItems.reduce(
+      (total, li) => total.add(isAnyItemInclusive ? li.getTotal().taxInclusive.subtotal : li.getTotal().taxExclusive.subtotal),
+      zero
+    );
+
+    const targetNetSubtotal = activeItems.reduce(
+      (total, li) => total.add(isAnyItemInclusive ? li.getTotal().taxInclusive.netSubtotal : li.getTotal().taxExclusive.netSubtotal),
+      zero
+    );
+
+    const isAnyShippingInclusive = shippingCharges.some(c => c.getIsTaxInclusive());
+    const targetShipping = shippingCharges.reduce(
+      (total, c) => total.add(isAnyShippingInclusive ? c.getTotal().taxInclusive.chargeAmount : c.getTotal().taxExclusive.chargeAmount),
+      zero
+    );
+
+    return { targetSubtotal, targetShipping, targetNetSubtotal };
   }
 
   /**
@@ -762,7 +858,8 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
   private applyNonShippingCoupons(applicableCoupons: CouponModel[]) {
     const coupons = applicableCoupons.filter(coupon => coupon.getType() === CouponType.COUPON);
     if (coupons.length === 1) {
-      const couponValue = coupons[0].calculateApplicableCouponDiscount(this.total.lineItemSubtotal, this.total.shippingCharges, this.country, this.currency, this.#metaData.checkCouponExpiry);
+      const bases = this.getCouponEvaluationBases();
+      const couponValue = coupons[0].calculateApplicableCouponDiscount(bases.targetSubtotal, bases.targetShipping, this.country, this.currency, this.#metaData.checkCouponExpiry);
       if (couponValue.getAmount() > 0) {
         this.coupons.push(coupons[0]);
         this.total.discountTotal = couponValue;
@@ -777,14 +874,15 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
    * @param applicableCoupons - List of available shipping coupons.
    */
   private applyShippingCoupons(applicableCoupons: CouponModel[]) {
-    if (this.total.shippingCharges.getAmount() > 0 && applicableCoupons.length > 0) {
-      const netLineItemSubtotal = this.total.lineItemSubtotal.subtract(this.total.discountTotal);
+    const bases = this.getCouponEvaluationBases();
+    if (bases.targetShipping.getAmount() > 0 && applicableCoupons.length > 0) {
+      const netLineItemSubtotal = bases.targetNetSubtotal;
 
       const maxValuedCoupon = applicableCoupons.reduce((maxCoupon, currentCoupon) => {
         if (!maxCoupon) return currentCoupon;
 
-        const currentCouponValue = currentCoupon.calculateApplicableCouponDiscount(netLineItemSubtotal, this.total.shippingCharges, this.country, this.currency, this.#metaData.checkCouponExpiry).min(this.total.shippingCharges);
-        const maxCouponValue = maxCoupon.calculateApplicableCouponDiscount(netLineItemSubtotal, this.total.shippingCharges, this.country, this.currency, this.#metaData.checkCouponExpiry).min(this.total.shippingCharges);
+        const currentCouponValue = currentCoupon.calculateApplicableCouponDiscount(netLineItemSubtotal, bases.targetShipping, this.country, this.currency, this.#metaData.checkCouponExpiry).min(bases.targetShipping);
+        const maxCouponValue = maxCoupon.calculateApplicableCouponDiscount(netLineItemSubtotal, bases.targetShipping, this.country, this.currency, this.#metaData.checkCouponExpiry).min(bases.targetShipping);
 
         if (currentCouponValue.compareTo(maxCouponValue) === 0) {
           return currentCoupon.getType() === CouponType.COUPON ? currentCoupon : maxCoupon;
@@ -792,7 +890,7 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
         return currentCouponValue.compareTo(maxCouponValue) > 0 ? currentCoupon : maxCoupon;
       });
 
-      const couponValue = maxValuedCoupon.calculateApplicableCouponDiscount(netLineItemSubtotal, this.total.shippingCharges, this.country, this.currency, this.#metaData.checkCouponExpiry).min(this.total.shippingCharges);
+      const couponValue = maxValuedCoupon.calculateApplicableCouponDiscount(netLineItemSubtotal, bases.targetShipping, this.country, this.currency, this.#metaData.checkCouponExpiry).min(bases.targetShipping);
       if (couponValue.getAmount() > 0) {
         this.coupons.push(maxValuedCoupon);
         this.total.discountTotal = this.total.discountTotal.add(couponValue);
@@ -800,6 +898,7 @@ export default abstract class BaseShoppingContainerModel extends BaseModel {
       }
     }
   }
+
 }
 
 

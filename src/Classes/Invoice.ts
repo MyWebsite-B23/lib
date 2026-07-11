@@ -29,13 +29,23 @@ export type InvoiceLineItemData = {
   name: string;
   variantLabel: string;
   quantity: number;
-  netUnitPrice: PriceData;
-  netSubtotal: PriceData;
   taxTotal: PriceData;
-  grandTotal: PriceData;
   taxBreakdown: Record<string, InvoiceTaxBreakdown>;
   taxCode: string;
   taxCodeType: string;
+  taxExclusive: {
+    unitPrice: PriceData;
+    subtotal: PriceData;
+    netUnitPrice: PriceData;
+    netSubtotal: PriceData;
+  };
+  taxInclusive: {
+    unitPrice: PriceData;
+    subtotal: PriceData;
+    netUnitPrice: PriceData;
+    netSubtotal: PriceData;
+  };
+  grandTotal: PriceData;
 }
 
 export type InvoiceLineItemModel = {
@@ -45,13 +55,23 @@ export type InvoiceLineItemModel = {
   name: string;
   variantLabel: string;
   quantity: number;
-  netUnitPrice: PriceModel;
-  netSubtotal: PriceModel;
   taxTotal: PriceModel;
-  grandTotal: PriceModel;
   taxBreakdown: Record<string, InvoiceTaxBreakdownModel>;
   taxCode: string;
   taxCodeType: string;
+  taxExclusive: {
+    unitPrice: PriceModel;
+    subtotal: PriceModel;
+    netUnitPrice: PriceModel;
+    netSubtotal: PriceModel;
+  };
+  taxInclusive: {
+    unitPrice: PriceModel;
+    subtotal: PriceModel;
+    netUnitPrice: PriceModel;
+    netSubtotal: PriceModel;
+  };
+  grandTotal: PriceModel;
 }
 
 export type InvoiceChargeData = {
@@ -60,12 +80,19 @@ export type InvoiceChargeData = {
   category: string;
   impact: ChargeImpact;
   name: string;
-  taxableValue: PriceData;
   taxTotal: PriceData;
-  grandTotal: PriceData;
   taxBreakdown: Record<string, InvoiceTaxBreakdown>;
   taxCode: string;
   taxCodeType: string;
+  taxExclusive: {
+    chargeAmount: PriceData;
+    netChargeAmount: PriceData;
+  };
+  taxInclusive: {
+    chargeAmount: PriceData;
+    netChargeAmount: PriceData;
+  };
+  grandTotal: PriceData;
 }
 
 export type InvoiceChargeModel = {
@@ -74,12 +101,19 @@ export type InvoiceChargeModel = {
   category: string;
   impact: ChargeImpact;
   name: string;
-  taxableValue: PriceModel;
   taxTotal: PriceModel;
-  grandTotal: PriceModel;
   taxBreakdown: Record<string, InvoiceTaxBreakdownModel>;
   taxCode: string;
   taxCodeType: string;
+  taxExclusive: {
+    chargeAmount: PriceModel;
+    netChargeAmount: PriceModel;
+  };
+  taxInclusive: {
+    chargeAmount: PriceModel;
+    netChargeAmount: PriceModel;
+  };
+  grandTotal: PriceModel;
 }
 
 export type InvoiceTaxContextData = {
@@ -169,12 +203,16 @@ export default class InvoiceModel extends BaseModel {
       address: new AddressModel(data.merchant.address)
     };
     this.lineItems = data.lineItems.map((item) => {
+      const taxExclusive = item.taxExclusive;
+      const taxInclusive = item.taxInclusive;
       return {
-        ...item,
-        netUnitPrice: new PriceModel(item.netUnitPrice),
-        netSubtotal: new PriceModel(item.netSubtotal),
+        id: item.id,
+        productKey: item.productKey,
+        sku: item.sku,
+        name: item.name,
+        variantLabel: item.variantLabel,
+        quantity: item.quantity,
         taxTotal: new PriceModel(item.taxTotal),
-        grandTotal: new PriceModel(item.grandTotal),
         taxBreakdown: Object.fromEntries(
           Object.entries(item.taxBreakdown || {}).map(([systemKey, systemValue]) => [
             systemKey,
@@ -184,15 +222,34 @@ export default class InvoiceModel extends BaseModel {
               taxAmount: new PriceModel(systemValue.taxAmount),
             },
           ])
-        )
+        ),
+        taxCode: item.taxCode,
+        taxCodeType: item.taxCodeType,
+        taxExclusive: {
+          unitPrice: new PriceModel(taxExclusive.unitPrice),
+          subtotal: new PriceModel(taxExclusive.subtotal),
+          netUnitPrice: new PriceModel(taxExclusive.netUnitPrice),
+          netSubtotal: new PriceModel(taxExclusive.netSubtotal),
+        },
+        taxInclusive: {
+          unitPrice: new PriceModel(taxInclusive.unitPrice),
+          subtotal: new PriceModel(taxInclusive.subtotal),
+          netUnitPrice: new PriceModel(taxInclusive.netUnitPrice),
+          netSubtotal: new PriceModel(taxInclusive.netSubtotal),
+        },
+        grandTotal: new PriceModel(item.grandTotal)
       };
     });
     this.charges = data.charges.map((charge) => {
+      const taxExclusive = charge.taxExclusive;
+      const taxInclusive = charge.taxInclusive;
       return {
-        ...charge,
-        taxableValue: new PriceModel(charge.taxableValue),
+        id: charge.id,
+        type: charge.type,
+        category: charge.category,
+        impact: charge.impact,
+        name: charge.name,
         taxTotal: new PriceModel(charge.taxTotal),
-        grandTotal: new PriceModel(charge.grandTotal),
         taxBreakdown: Object.fromEntries(
           Object.entries(charge.taxBreakdown || {}).map(([systemKey, systemValue]) => [
             systemKey,
@@ -202,24 +259,28 @@ export default class InvoiceModel extends BaseModel {
               taxAmount: new PriceModel(systemValue.taxAmount),
             },
           ])
-        )
+        ),
+        taxCode: charge.taxCode,
+        taxCodeType: charge.taxCodeType,
+        taxExclusive: {
+          chargeAmount: new PriceModel(taxExclusive.chargeAmount),
+          netChargeAmount: new PriceModel(taxExclusive.netChargeAmount),
+        },
+        taxInclusive: {
+          chargeAmount: new PriceModel(taxInclusive.chargeAmount),
+          netChargeAmount: new PriceModel(taxInclusive.netChargeAmount),
+        },
+        grandTotal: new PriceModel(charge.grandTotal)
       };
     });
 
     this.total = {
-      lineItemSubtotal: new PriceModel(data.total.lineItemSubtotal),
-      netLineItemSubtotal: new PriceModel(data.total.netLineItemSubtotal),
       lineItemTaxTotal: new PriceModel(data.total.lineItemTaxTotal),
       lineItemTaxBreakdown: this.mapTaxBreakdown(data.total.lineItemTaxBreakdown),
 
-      additiveCharges: new PriceModel(data.total.additiveCharges),
-      netAdditiveCharges: new PriceModel(data.total.netAdditiveCharges),
       additiveChargesTaxTotal: new PriceModel(data.total.additiveChargesTaxTotal),
-
       additiveChargesTaxBreakdown: this.mapTaxBreakdown(data.total.additiveChargesTaxBreakdown),
       adjustmentCharges: new PriceModel(data.total.adjustmentCharges),
-      shippingCharges: new PriceModel(data.total.shippingCharges),
-      netShippingCharges: new PriceModel(data.total.netShippingCharges),
 
       discountTotal: new PriceModel(data.total.discountTotal),
       discountBreakdown: Object.fromEntries(
@@ -228,6 +289,23 @@ export default class InvoiceModel extends BaseModel {
 
       taxTotal: new PriceModel(data.total.taxTotal),
       taxBreakdown: this.mapTaxBreakdown(data.total.taxBreakdown),
+
+      taxExclusive: {
+        lineItemSubtotal: new PriceModel(data.total.taxExclusive.lineItemSubtotal),
+        netLineItemSubtotal: new PriceModel(data.total.taxExclusive.netLineItemSubtotal),
+        additiveCharges: new PriceModel(data.total.taxExclusive.additiveCharges),
+        netAdditiveCharges: new PriceModel(data.total.taxExclusive.netAdditiveCharges),
+        shippingCharges: new PriceModel(data.total.taxExclusive.shippingCharges),
+        netShippingCharges: new PriceModel(data.total.taxExclusive.netShippingCharges),
+      },
+      taxInclusive: {
+        lineItemSubtotal: new PriceModel(data.total.taxInclusive.lineItemSubtotal),
+        netLineItemSubtotal: new PriceModel(data.total.taxInclusive.netLineItemSubtotal),
+        additiveCharges: new PriceModel(data.total.taxInclusive.additiveCharges),
+        netAdditiveCharges: new PriceModel(data.total.taxInclusive.netAdditiveCharges),
+        shippingCharges: new PriceModel(data.total.taxInclusive.shippingCharges),
+        netShippingCharges: new PriceModel(data.total.taxInclusive.netShippingCharges),
+      },
       grandTotal: new PriceModel(data.total.grandTotal),
     };
   }
@@ -459,11 +537,15 @@ export default class InvoiceModel extends BaseModel {
       },
       lineItems: this.lineItems.map((item) => {
         return {
-          ...item,
-          netUnitPrice: item.netUnitPrice.getDetails(),
-          netSubtotal: item.netSubtotal.getDetails(),
+          id: item.id,
+          productKey: item.productKey,
+          sku: item.sku,
+          name: item.name,
+          variantLabel: item.variantLabel,
+          quantity: item.quantity,
+          taxCode: item.taxCode,
+          taxCodeType: item.taxCodeType,
           taxTotal: item.taxTotal.getDetails(),
-          grandTotal: item.grandTotal.getDetails(),
           taxBreakdown: Object.fromEntries(
             Object.entries(item.taxBreakdown).map(([systemKey, systemValue]) => [
               systemKey,
@@ -473,15 +555,32 @@ export default class InvoiceModel extends BaseModel {
                 taxAmount: systemValue.taxAmount.getDetails(),
               },
             ])
-          )
+          ),
+          taxExclusive: {
+            unitPrice: item.taxExclusive.unitPrice.getDetails(),
+            subtotal: item.taxExclusive.subtotal.getDetails(),
+            netUnitPrice: item.taxExclusive.netUnitPrice.getDetails(),
+            netSubtotal: item.taxExclusive.netSubtotal.getDetails(),
+          },
+          taxInclusive: {
+            unitPrice: item.taxInclusive.unitPrice.getDetails(),
+            subtotal: item.taxInclusive.subtotal.getDetails(),
+            netUnitPrice: item.taxInclusive.netUnitPrice.getDetails(),
+            netSubtotal: item.taxInclusive.netSubtotal.getDetails(),
+          },
+          grandTotal: item.grandTotal.getDetails(),
         };
       }),
       charges: this.charges.map((charge) => {
         return {
-          ...charge,
-          taxableValue: charge.taxableValue.getDetails(),
+          id: charge.id,
+          type: charge.type,
+          category: charge.category,
+          impact: charge.impact,
+          name: charge.name,
+          taxCode: charge.taxCode,
+          taxCodeType: charge.taxCodeType,
           taxTotal: charge.taxTotal.getDetails(),
-          grandTotal: charge.grandTotal.getDetails(),
           taxBreakdown: Object.fromEntries(
             Object.entries(charge.taxBreakdown).map(([systemKey, systemValue]) => [
               systemKey,
@@ -491,26 +590,28 @@ export default class InvoiceModel extends BaseModel {
                 taxAmount: systemValue.taxAmount.getDetails(),
               },
             ])
-          )
+          ),
+          taxExclusive: {
+            chargeAmount: charge.taxExclusive.chargeAmount.getDetails(),
+            netChargeAmount: charge.taxExclusive.netChargeAmount.getDetails(),
+          },
+          taxInclusive: {
+            chargeAmount: charge.taxInclusive.chargeAmount.getDetails(),
+            netChargeAmount: charge.taxInclusive.netChargeAmount.getDetails(),
+          },
+          grandTotal: charge.grandTotal.getDetails(),
         };
       }),
       total: {
         // Item Totals
-        lineItemSubtotal: totals.lineItemSubtotal.getDetails(),
-        netLineItemSubtotal: totals.netLineItemSubtotal.getDetails(),
         lineItemTaxTotal: totals.lineItemTaxTotal.getDetails(),
         lineItemTaxBreakdown: this.serializeTaxBreakdown(totals.lineItemTaxBreakdown),
 
         // Charge Totals
-        additiveCharges: totals.additiveCharges.getDetails(),
-        netAdditiveCharges: totals.netAdditiveCharges.getDetails(),
         additiveChargesTaxTotal: totals.additiveChargesTaxTotal.getDetails(),
         additiveChargesTaxBreakdown: this.serializeTaxBreakdown(totals.additiveChargesTaxBreakdown),
 
         adjustmentCharges: totals.adjustmentCharges.getDetails(),
-
-        shippingCharges: totals.shippingCharges.getDetails(),
-        netShippingCharges: totals.netShippingCharges.getDetails(),
 
         // Aggregate Totals
         discountTotal: totals.discountTotal.getDetails(),
@@ -519,6 +620,23 @@ export default class InvoiceModel extends BaseModel {
         ),
         taxTotal: totals.taxTotal.getDetails(),
         taxBreakdown: this.serializeTaxBreakdown(totals.taxBreakdown),
+
+        taxExclusive: {
+          lineItemSubtotal: totals.taxExclusive.lineItemSubtotal.getDetails(),
+          netLineItemSubtotal: totals.taxExclusive.netLineItemSubtotal.getDetails(),
+          additiveCharges: totals.taxExclusive.additiveCharges.getDetails(),
+          netAdditiveCharges: totals.taxExclusive.netAdditiveCharges.getDetails(),
+          shippingCharges: totals.taxExclusive.shippingCharges.getDetails(),
+          netShippingCharges: totals.taxExclusive.netShippingCharges.getDetails(),
+        },
+        taxInclusive: {
+          lineItemSubtotal: totals.taxInclusive.lineItemSubtotal.getDetails(),
+          netLineItemSubtotal: totals.taxInclusive.netLineItemSubtotal.getDetails(),
+          additiveCharges: totals.taxInclusive.additiveCharges.getDetails(),
+          netAdditiveCharges: totals.taxInclusive.netAdditiveCharges.getDetails(),
+          shippingCharges: totals.taxInclusive.shippingCharges.getDetails(),
+          netShippingCharges: totals.taxInclusive.netShippingCharges.getDetails(),
+        },
         grandTotal: totals.grandTotal.getDetails(),
       },
     };

@@ -3,7 +3,7 @@ import Utils from "../Utils";
 import { LocaleCode, LocalizedString } from "./Common";
 import { ChargeImpact, ChargeType, LocaleLanguageMap, TaxSystem } from "./Enum";
 import { InvalidChargeTaxRuleError, InvalidChargeError, InvalidTaxRuleError } from "./Error";
-import { extractExclusiveBase, calculateDistributedTaxes } from "../Utils/TaxMath";
+import { calculateDualViewTotals } from "../Utils/TaxMath";
 import PriceModel, { PriceData } from "./Price";
 import { TaxRuleData, TaxRuleModel } from "./TaxRule";
 import CouponModel from "./Coupon";
@@ -15,6 +15,7 @@ export type ChargePricing = {
   taxCategory: string;
   /** Tax rules applicable to the charge. */
   applicableTaxRule: TaxRuleData[];
+  isTaxInclusive?: boolean;
 };
 
 export type ChargePricingModel = {
@@ -24,6 +25,7 @@ export type ChargePricingModel = {
   taxCategory: string;
   /** Tax rules applicable to the charge. */
   applicableTaxRule: TaxRuleModel[];
+  isTaxInclusive: boolean;
 };
 
 export type ChargeTaxBreakdown = {
@@ -46,30 +48,39 @@ export type ChargeTaxBreakdownModel = {
 };
 
 export type ChargeTotals = {
-  /** Tax-inclusive original charge amount before discounts (copied from pricing) */
-  chargeAmount: PriceData;
   /** Coupon code -> discount amount mapping */
   discountBreakdown: Record<string, PriceData>;
   /** Sum of all discounts */
   discountTotal: PriceData;
-  /** chargeAmount - totalDiscount → final tax-inclusive payable amount after discounts */
-  netChargeAmount: PriceData;
   /** Sum of all taxAmount values */
   taxTotal: PriceData;
   /** Tax breakdown per rule/category (reverse-calculated from netChargeAmount) */
   taxBreakdown: Record<string, ChargeTaxBreakdown>;
-  /** Final payable/contribution amount. Equals netChargeAmount (tax-inclusive after discounts). */
+  taxExclusive: {
+    chargeAmount: PriceData;
+    netChargeAmount: PriceData;
+  };
+  taxInclusive: {
+    chargeAmount: PriceData;
+    netChargeAmount: PriceData;
+  };
   grandTotal: PriceData;
 };
 
 export type ChargeTotalsModel = {
-  chargeAmount: PriceModel;
   discountTotal: PriceModel;
   discountBreakdown: Record<string, PriceModel>;
-  netChargeAmount: PriceModel;
   taxTotal: PriceModel;
   taxBreakdown: Record<string, ChargeTaxBreakdownModel>;
-  grandTotal: PriceModel; // Equals netChargeAmount
+  taxExclusive: {
+    chargeAmount: PriceModel;
+    netChargeAmount: PriceModel;
+  };
+  taxInclusive: {
+    chargeAmount: PriceModel;
+    netChargeAmount: PriceModel;
+  };
+  grandTotal: PriceModel;
 };
 
 export type ChargeAttributes = CustomFieldAttributes & {
@@ -112,7 +123,8 @@ export default class ChargeModel extends CustomFieldModel {
 		this.pricing = {
 			baseChargeAmount: new PriceModel(data.pricing.baseChargeAmount),
 			taxCategory: data.pricing.taxCategory,
-			applicableTaxRule: data.pricing.applicableTaxRule.map(r => new TaxRuleModel(r))
+			applicableTaxRule: data.pricing.applicableTaxRule.map(r => new TaxRuleModel(r)),
+			isTaxInclusive: data.pricing.isTaxInclusive ?? false
 		};
 
 		this.validateTaxRules(this.pricing.applicableTaxRule);
@@ -121,7 +133,6 @@ export default class ChargeModel extends CustomFieldModel {
 		}
 
 		this.total = {
-			chargeAmount: new PriceModel(data.total.chargeAmount),
 			discountTotal: new PriceModel(data.total.discountTotal),
 			discountBreakdown: Object.fromEntries(
 				Object.entries(data.total.discountBreakdown).map(([discountId, discount]) => [
@@ -129,7 +140,6 @@ export default class ChargeModel extends CustomFieldModel {
 					new PriceModel(discount)
 				])
 			),
-			netChargeAmount: new PriceModel(data.total.netChargeAmount),
 			taxBreakdown: Object.fromEntries(
 				Object.entries(data.total.taxBreakdown).map(([taxRuleId, taxBreakdown]) => [
 					taxRuleId,
@@ -143,6 +153,14 @@ export default class ChargeModel extends CustomFieldModel {
 				])
 			),
 			taxTotal: new PriceModel(data.total.taxTotal),
+			taxExclusive: {
+				chargeAmount: new PriceModel(data.total.taxExclusive.chargeAmount),
+				netChargeAmount: new PriceModel(data.total.taxExclusive.netChargeAmount),
+			},
+			taxInclusive: {
+				chargeAmount: new PriceModel(data.total.taxInclusive.chargeAmount),
+				netChargeAmount: new PriceModel(data.total.taxInclusive.netChargeAmount),
+			},
 			grandTotal: new PriceModel(data.total.grandTotal),
 		};
 	}
@@ -197,6 +215,13 @@ export default class ChargeModel extends CustomFieldModel {
 	public getLineItemId(): string | undefined { return this.lineItemId; }
 
 	/**
+	 * Gets whether the charge is tax inclusive.
+	 */
+	public getIsTaxInclusive(): boolean {
+		return this.pricing.isTaxInclusive;
+	}
+
+	/**
 	 * Gets the pricing details (models) for this charge.
 	 * @returns Pricing details including price, tax category, and tax rules.
 	 */
@@ -204,7 +229,8 @@ export default class ChargeModel extends CustomFieldModel {
 		return {
 			baseChargeAmount: this.pricing.baseChargeAmount,
 			taxCategory: this.pricing.taxCategory,
-			applicableTaxRule: [...this.pricing.applicableTaxRule]
+			applicableTaxRule: [...this.pricing.applicableTaxRule],
+			isTaxInclusive: this.pricing.isTaxInclusive
 		};
 	}
 
@@ -214,10 +240,8 @@ export default class ChargeModel extends CustomFieldModel {
 	 */
 	public getTotal(): ChargeTotalsModel {
 		return {
-			chargeAmount: this.total.chargeAmount,
 			discountTotal: this.total.discountTotal,
 			discountBreakdown: { ...this.total.discountBreakdown },
-			netChargeAmount: this.total.netChargeAmount,
 			taxTotal: this.total.taxTotal,
 			taxBreakdown: Object.fromEntries(
 				Object.entries(this.total.taxBreakdown).map(([key, value]) => [
@@ -231,6 +255,14 @@ export default class ChargeModel extends CustomFieldModel {
 					}
 				])
 			),
+			taxExclusive: {
+				chargeAmount: this.total.taxExclusive.chargeAmount,
+				netChargeAmount: this.total.taxExclusive.netChargeAmount,
+			},
+			taxInclusive: {
+				chargeAmount: this.total.taxInclusive.chargeAmount,
+				netChargeAmount: this.total.taxInclusive.netChargeAmount,
+			},
 			grandTotal: this.total.grandTotal,
 		};
 	}
@@ -347,59 +379,45 @@ export default class ChargeModel extends CustomFieldModel {
 
 	/**
 	 * Recalculates totals for this charge based on pricing and discounts.
+	 * Delegates tax computation to shared calculateDualViewTotals utility.
 	 */
 	public calculateTotals(): void {
 		const zero = this.pricing.baseChargeAmount.zero();
-		const baseChargeAmount = this.pricing.baseChargeAmount;
-
 		const totalDiscount = Object.values(this.total.discountBreakdown).reduce((sum, s) => sum.add(s), zero);
-		const netChargeAmount = baseChargeAmount.subtract(totalDiscount);
 
+		const result = calculateDualViewTotals(
+			this.pricing.baseChargeAmount,
+			totalDiscount,
+			this.pricing.isTaxInclusive,
+			this.pricing.applicableTaxRule
+		);
+
+		// Map TaxBreakdownEntry[] to Record<string, ChargeTaxBreakdownModel>
 		const taxBreakdown: Record<string, ChargeTaxBreakdownModel> = {};
-
-		// 1. Calculate total rate for inclusive back-calculation
-		const totalRate = this.pricing.applicableTaxRule.reduce((sum, r) => sum + r.getApplicableTaxRate(netChargeAmount), 0);
-
-		if (totalRate <= 0) {
-			this.total = {
-				chargeAmount: baseChargeAmount,
-				discountTotal: totalDiscount,
-				discountBreakdown: this.total.discountBreakdown,
-				netChargeAmount: netChargeAmount,
-				taxTotal: zero,
-				taxBreakdown: {},
-				grandTotal: netChargeAmount
+		result.taxBreakdown.forEach(entry => {
+			taxBreakdown[entry.ruleId] = {
+				rate: entry.rate,
+				taxableAmount: entry.taxableAmount,
+				taxAmount: entry.taxAmount,
+				system: entry.system,
+				subSystem: entry.subSystem
 			};
-			return;
-		}
-
-		// 2. Extract exclusive base using TaxMath utility
-		const taxableBase = extractExclusiveBase(netChargeAmount, this.pricing.applicableTaxRule);
-
-		// 3. Compute tax amounts per rule based on final taxable base
-		const distributedTaxes = calculateDistributedTaxes(taxableBase, netChargeAmount, this.pricing.applicableTaxRule);
-		let taxTotal = zero;
-		distributedTaxes.forEach(dt => {
-			const taxRule = this.pricing.applicableTaxRule.find(r => r.getTaxRuleId() === dt.ruleId)!;
-			taxBreakdown[dt.ruleId] = {
-				rate: dt.rate,
-				taxableAmount: taxableBase,
-				taxAmount: dt.taxAmount,
-				system: taxRule.getTaxSystem(),
-				subSystem: taxRule.getTaxSubSystem()
-			};
-			taxTotal = taxTotal.add(dt.taxAmount);
 		});
 
-		const grandTotal = netChargeAmount;
 		this.total = {
-			chargeAmount: baseChargeAmount,
-			discountTotal: totalDiscount,
+			discountTotal: result.discountTotal,
 			discountBreakdown: this.total.discountBreakdown,
-			netChargeAmount: netChargeAmount,
+			taxTotal: result.taxTotal,
 			taxBreakdown: taxBreakdown,
-			taxTotal: taxTotal,
-			grandTotal: grandTotal
+			taxExclusive: {
+				chargeAmount: result.taxExclusive.baseAmount,
+				netChargeAmount: result.taxExclusive.netAmount,
+			},
+			taxInclusive: {
+				chargeAmount: result.taxInclusive.baseAmount,
+				netChargeAmount: result.taxInclusive.netAmount,
+			},
+			grandTotal: result.taxInclusive.grandTotal,
 		};
 	}
 
@@ -416,15 +434,14 @@ export default class ChargeModel extends CustomFieldModel {
 			pricing: {
 				baseChargeAmount: this.pricing.baseChargeAmount.getDetails(),
 				taxCategory: this.pricing.taxCategory,
-				applicableTaxRule: this.pricing.applicableTaxRule.map(r => r.getDetails())
+				applicableTaxRule: this.pricing.applicableTaxRule.map(r => r.getDetails()),
+				isTaxInclusive: this.pricing.isTaxInclusive
 			},
 			impact: this.impact,
 			lineItemId: this.lineItemId,
 			total: {
-				chargeAmount: this.total.chargeAmount.getDetails(),
 				discountTotal: this.total.discountTotal.getDetails(),
 				discountBreakdown: Object.fromEntries(Object.entries(this.total.discountBreakdown).map(([k, v]) => [k, v.getDetails()])),
-				netChargeAmount: this.total.netChargeAmount.getDetails(),
 				taxBreakdown: Object.fromEntries(Object.entries(this.total.taxBreakdown).map(([k, v]) => [k, {
 					rate: v.rate,
 					taxableAmount: v.taxableAmount.getDetails(),
@@ -433,7 +450,15 @@ export default class ChargeModel extends CustomFieldModel {
 					subSystem: v.subSystem
 				}])),
 				taxTotal: this.total.taxTotal.getDetails(),
-				grandTotal: this.total.grandTotal.getDetails()
+				taxExclusive: {
+					chargeAmount: this.total.taxExclusive.chargeAmount.getDetails(),
+					netChargeAmount: this.total.taxExclusive.netChargeAmount.getDetails(),
+				},
+				taxInclusive: {
+					chargeAmount: this.total.taxInclusive.chargeAmount.getDetails(),
+					netChargeAmount: this.total.taxInclusive.netChargeAmount.getDetails(),
+				},
+				grandTotal: this.total.grandTotal.getDetails(),
 			},
 			customFields: this.getAllCustomFields()
 		};
