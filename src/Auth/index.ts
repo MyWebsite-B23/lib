@@ -30,6 +30,7 @@ export interface AuthUtilityConfig {
   adminPrivateKeys: StringifiedJSONArray;
   adminPublicKeys: StringifiedJSONArray;
   cdnKeys: StringifiedJSONArray;
+  externalKeys: StringifiedJSONArray;
 }
 
 export const DefaultAuthUtilityConfig: Readonly<AuthUtilityConfig> = {
@@ -46,6 +47,7 @@ export const DefaultAuthUtilityConfig: Readonly<AuthUtilityConfig> = {
   adminPrivateKeys: '[]',
   adminPublicKeys: '[]',
   cdnKeys: '[]',
+  externalKeys: '[]',
 };
 
 export enum AuthType {
@@ -53,7 +55,8 @@ export enum AuthType {
   USER = 'User',
   SYSTEM = 'System',
   ADMIN = 'Admin',
-  CDN = 'CDN'
+  CDN = 'CDN',
+  EXTERNAL = 'External'
 }
 
 export interface AuthMiddlewareConfig {
@@ -61,13 +64,15 @@ export interface AuthMiddlewareConfig {
   allowSystem: boolean;
   allowUser: boolean;
   allowCDN: boolean;
+  allowExternal: boolean;
 }
 
 export const DefaultAuthMiddlewareConfig: Readonly<AuthMiddlewareConfig> = {
   allowAnonymous: false,
   allowSystem: true,
   allowUser: true,
-  allowCDN: false
+  allowCDN: false,
+  allowExternal: false
 };
 
 /**
@@ -91,6 +96,7 @@ class AuthUtility {
   private adminPublicKeys: string[];
 
   private cdnKeys: string[];
+  private externalKeys: string[];
 
   /**
    * Initializes the AuthUtility class with a configuration.
@@ -110,7 +116,8 @@ class AuthUtility {
       adminTokenAge,
       adminPrivateKeys,
       adminPublicKeys,
-      cdnKeys
+      cdnKeys,
+      externalKeys
     } = { ...DefaultAuthUtilityConfig, ...config };
 
     this.userTokenAge = userTokenAge;
@@ -130,6 +137,7 @@ class AuthUtility {
     this.adminPublicKeys = this.parseKeyArray(adminPublicKeys, 'admin public');
 
     this.cdnKeys = this.parseKeyArray(cdnKeys, 'cdn');
+    this.externalKeys = this.parseKeyArray(externalKeys, 'external');
 
     this.logWarnings();
   }
@@ -361,6 +369,17 @@ class AuthUtility {
     return payload;
   }
 
+  async verifyExternalToken(token: string) {
+    assert(this.externalKeys.includes(token), ErrorTypes.INVALID_TOKEN);
+
+    const payload: AuthPayloadData = {
+      id: token,
+      type: AuthType.EXTERNAL,
+    };
+
+    return payload;
+  }
+
   /**
    * Middleware function to handle authentication based on different token types.
    * It verifies the token and sets the authentication details in the response locals.
@@ -369,7 +388,7 @@ class AuthUtility {
    * @returns Middleware function to handle authentication.
    */
   AuthMiddleware(config: Partial<AuthMiddlewareConfig> = DefaultAuthMiddlewareConfig, permissions: string[] = []) {
-    const { allowAnonymous, allowSystem, allowUser, allowCDN } = { ...DefaultAuthMiddlewareConfig, ...config };
+    const { allowAnonymous, allowSystem, allowUser, allowCDN, allowExternal } = { ...DefaultAuthMiddlewareConfig, ...config };
     return async (req: any, res: any, next: any) => {
       try {
         const [authType, token] = req.get('Authorization')?.split(' ') || [];
@@ -395,6 +414,11 @@ class AuthUtility {
           case AuthType.CDN:
             if (!allowCDN) throw ResponseUtility.generateError(403, ErrorTypes.CDN_SESSION_NOT_ALLOWED);
             payload = await this.verifyCDNToken(token);
+
+            break;
+          case AuthType.EXTERNAL:
+            if (!allowExternal) throw ResponseUtility.generateError(403, ErrorTypes.EXTERNAL_SESSION_NOT_ALLOWED);
+            payload = await this.verifyExternalToken(token);
 
             break;
           default:
@@ -441,7 +465,7 @@ class AuthUtility {
     return async (req: any, res: any, next: any) => {
       try {
         const [authType, token] = req.get('Authorization')?.split(' ') || [];
-        let payload = authType === AuthType.CDN ? { id: token, type: AuthType.CDN } : (authType ? this.decodeJWTPayloadWithJose(token) : {});
+        let payload = (authType === AuthType.CDN || authType === AuthType.EXTERNAL) ? { id: token, type: authType as AuthType } : (authType ? this.decodeJWTPayloadWithJose(token) : {});
 
         const authContext = AuthContext.init(payload?.id || token, payload?.type || authType, token, req.get('x-request-id'));
         Logger.logMessage('AuthContextMiddleware', `AuthContext initialized: ${authContext.getType() || 'No-Type'} - ${authContext.getId() || 'No-Id'}`);
