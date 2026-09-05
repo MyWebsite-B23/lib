@@ -17,6 +17,7 @@ export type AuthPayloadData = {
 }
 
 export interface AuthUtilityConfig {
+  project: string;
   userTokenAge: string;
   userPrivateKeys: StringifiedJSONArray;
   userPublicKeys: StringifiedJSONArray;
@@ -34,6 +35,7 @@ export interface AuthUtilityConfig {
 }
 
 export const DefaultAuthUtilityConfig: Readonly<AuthUtilityConfig> = {
+  project: '',
   userTokenAge: '30 days',
   userPrivateKeys: '[]',
   userPublicKeys: '[]',
@@ -79,6 +81,9 @@ export const DefaultAuthMiddlewareConfig: Readonly<AuthMiddlewareConfig> = {
  * A utility class for JWT authentication and authorization.
  */
 class AuthUtility {
+  
+  private project: string;
+
   private userTokenAge: string;
   private userPrivateKeys: string[];
   private userPublicKeys: string[];
@@ -104,6 +109,7 @@ class AuthUtility {
    */
   constructor(config: Partial<AuthUtilityConfig> = DefaultAuthUtilityConfig) {
     const {
+      project,
       userTokenAge,
       userPrivateKeys,
       userPublicKeys,
@@ -119,6 +125,8 @@ class AuthUtility {
       cdnKeys,
       externalKeys
     } = { ...DefaultAuthUtilityConfig, ...config };
+
+    this.project = project;
 
     this.userTokenAge = userTokenAge;
     this.userPrivateKeys = this.parseKeyArray(userPrivateKeys, 'user private');
@@ -347,7 +355,7 @@ class AuthUtility {
     assert(payload.type === AuthType.ADMIN, ErrorTypes.INVALID_AUTH_TYPE);
 
     if(authenticate) {
-      const response = await Fetch(payload.verifier as string, '', 'POST', {}, { token, permissions });
+      const response = await Fetch(payload.verifier as string, '', 'POST', {}, { token, permissions, project: this.project });
       assert(response.data.data.isTokenValid === true, ErrorTypes.INVALID_TOKEN);
   
       if(response.data.data.hasPermissions !== true){
