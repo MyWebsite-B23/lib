@@ -7,7 +7,8 @@ export enum CartState {
   ACTIVE = "ACTIVE",
   FROZEN = "FROZEN",
   MERGED = "MERGED",
-  ORDERED = "ORDERED"
+  ORDERED = "ORDERED",
+  QUOTED = "QUOTED"
 }
 
 /**
