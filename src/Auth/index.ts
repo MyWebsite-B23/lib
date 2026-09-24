@@ -366,11 +366,25 @@ class AuthUtility {
     return payload;
   }
 
+  /**
+   * Masks a token string when used as an ID, leaving only the first 12 characters visible
+   * and replacing remaining characters with asterisks.
+   *
+   * @param token - The token string to mask.
+   * @returns The masked token string.
+   */
+  maskTokenId(token: string): string {
+    if (!token || typeof token !== 'string') return token;
+    if (token.length <= 7) return token;
+    if (token.length <= 12) return token.substring(0, 7) + '*'.repeat(token.length - 7);
+    return token.substring(0, 12) + '*'.repeat(token.length - 12);
+  }
+
   async verifyCDNToken(token: string) {
     assert(this.cdnKeys.includes(token), ErrorTypes.INVALID_TOKEN);
 
     const payload: AuthPayloadData = {
-      id: token,
+      id: this.maskTokenId(token),
       type: AuthType.CDN,
     };
 
@@ -381,7 +395,7 @@ class AuthUtility {
     assert(this.externalKeys.includes(token), ErrorTypes.INVALID_TOKEN);
 
     const payload: AuthPayloadData = {
-      id: token,
+      id: this.maskTokenId(token),
       type: AuthType.EXTERNAL,
     };
 
@@ -473,7 +487,9 @@ class AuthUtility {
     return async (req: any, res: any, next: any) => {
       try {
         const [authType, token] = req.get('Authorization')?.split(' ') || [];
-        let payload = (authType === AuthType.CDN || authType === AuthType.EXTERNAL) ? { id: token, type: authType as AuthType } : (authType ? this.decodeJWTPayloadWithJose(token) : {});
+        let payload = (authType === AuthType.CDN || authType === AuthType.EXTERNAL) 
+          ? { id: this.maskTokenId(token), type: authType as AuthType } 
+          : (authType ? this.decodeJWTPayloadWithJose(token) : {});
 
         const authContext = AuthContext.init(payload?.id || token, payload?.type || authType, token, req.get('x-request-id'));
         Logger.logMessage('AuthContextMiddleware', `AuthContext initialized: ${authContext.getType() || 'No-Type'} - ${authContext.getId() || 'No-Id'}`);
