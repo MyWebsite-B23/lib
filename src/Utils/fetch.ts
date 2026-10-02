@@ -20,7 +20,7 @@ export type SuccessType = {
  *
  * @param {string} baseURL - The base URL of the API.
  * @param {string} endpoint - The specific endpoint to call.
- * @param {'GET' | 'POST' | 'PATCH' | 'DELETE'} [method='GET'] - The HTTP method to use for the request.
+ * @param {'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'} [method='GET'] - The HTTP method to use for the request.
  * @param {Record<string, string>} [headers={}] - Additional headers to include in the request.
  * @param {any} [payload] - The payload to send with the request, if applicable.
  * @returns {Promise<SuccessType>} - A promise that resolves to the response data if the request is successful.
@@ -29,7 +29,7 @@ export type SuccessType = {
 const Fetch = async (
   baseURL: string,
   endpoint: string,
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'GET',
   headers: Record<string, string> = {},
   payload?: any,
 ): Promise<SuccessType> => {
